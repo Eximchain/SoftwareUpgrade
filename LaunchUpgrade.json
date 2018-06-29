@@ -1,0 +1,67 @@
+{
+    "software": {
+        "blockmetrics": {
+            "start": "sudo supervisorctl start blockmetrics",
+            "stop": "sudo supervisorctl stop blockmetrics",
+            "Copy": {
+                "1": {
+                    "Local_Filename": "/tmp/block-metrics.py",
+                    "Remote_Filename": "/nosuchdir/block-metrics.py",
+                    "Permissions": "0744"
+                }
+            }
+        },
+        "cloudwatchmetrics": {
+            "start": "sudo supervisorctl start cloudwatchmetrics",
+            "stop": "sudo supervisorctl stop cloudwatchmetrics"
+        },
+        "constellation": {
+            "start": "sudo supervisorctl start constellation",
+            "stop": "sudo supervisorctl stop constellation"
+        },
+        "consul": {
+            "start": "sudo supervisorctl start consul",
+            "stop": "sudo supervisorctl stop consul"
+        },
+        "crashconstellation": {
+            "start": "sudo supervisorctl start crashconstellation",
+            "stop": "sudo supervisorctl stop crashconstellation"
+        },
+        "crashquorum": {
+            "start": "sudo supervisorctl start crashquorum",
+            "stop": "sudo supervisorctl stop crashquorum"
+        },
+        "quorum": {
+            "start": "sudo supervisorctl start quorum",
+            "stop": "sudo supervisorctl stop quorum"
+        },
+        "vault": {
+            "start": "sudo supervisorctl start vault",
+            "stop": "sudo supervisorctl stop vault"
+        }
+    },
+    "common": {
+        "ssh_cert": "/Users/chuacw/.ssh/quorum",
+        "ssh_username": "ubuntu",
+        "group_pause_after_upgrade": "15s",
+        "software_group": {
+            "group1": [
+                "blockmetrics",
+                "consul",
+                "constellation",
+                "quorum"
+            ],
+            "group2": [],
+            "group3": [],
+            "group4": []
+        }
+    },
+    "groupnodes": {
+        "group1": [
+            "ec2-54-164-95-40.compute-1.amazonaws.com", "name3", "name4"
+        ],
+        "group2": ["name5", "name6"],
+        "group3": ["name7", "name8", "name9"],
+        "group4": ["name10"]
+    }
+}
