@@ -1,3 +1,31 @@
+Introduction
+==
+This is a software written to help in upgrading the software running on the Eximchain Blockchain nodes.
+
+In order to run this, you'll need to build it.
+
+To build this, you'll need to refer instructions given in the BUILD.md.
+
+Command line parameters
+==
+
+-debug Specifies debug mode. When this is specified, more debug information go into the debug log.
+-debug-log logfilename - specifies the name of the debug log to write to.
+-json jsonfilename - specifies the name of the JSON configuration file to read from.
+--help - brings up information about the parameters.
+
+
+JSON configuration file format
+==
+
+The JSON configuration file is a JSON object, consists of x objects. The software object defines multiple objects that specifies start, stop and files to copy to the node. 
+
+The common object defines the location of the ssh certificate, the username to use.
+
+The groupnodes object lists nodes belonging to groups listed in the software object child nodes.
+
+
+```
 {
     "software": {
         "blockmetrics": {
@@ -160,3 +188,10 @@
         ]
     }
 }
+```
+
+Troubleshooting
+==
+By default, this software produces a debug log called Upgrade-debug.log at ~/, unless it is disabled.
+
+Any errors should appear in the debug log.

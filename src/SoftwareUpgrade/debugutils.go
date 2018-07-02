@@ -44,10 +44,14 @@ func (d *DebugLog) SetOutput(w io.Writer) {
 
 func (d *DebugLog) EnableDebugLog(LogFilePtr *string) error {
 	if LogFilePtr == nil || *LogFilePtr == "" {
-		return errors.New("Filename is empty")
+		return errors.New("Log filename is empty")
 	}
 	var err error
-	d.file, err = os.Create(*LogFilePtr)
+	expandedLogPath, err := expand(*LogFilePtr)
+	if err != nil {
+		return err
+	}
+	d.file, err = os.Create(expandedLogPath)
 	if err == nil {
 		log.SetOutput(d.file)
 	}

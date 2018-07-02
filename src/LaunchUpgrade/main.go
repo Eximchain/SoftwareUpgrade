@@ -15,8 +15,9 @@ var (
 )
 
 func main() {
+	d.Println(softwareupgrade.CEximchainUpgradeTitle)
 	debugFlagPtr := flag.Bool("debug", false, "Specifies debug mode")
-	debugLogFilePtr := flag.String("debug-log", "", "Specifies the debug log filename where logs are written to")
+	debugLogFilePtr := flag.String("debug-log", `~/Upgrade-debug.log`, "Specifies the debug log filename where logs are written to")
 	// configFilePtr := flag.String("conf", "/Users/chuacw/Documents/GitHub/SoftwareUpgrade/config.ini", "Specifies the configuration file")
 	jsonFilePtr := flag.String("json", "LaunchUpgrade.json", "Specifies the JSON configuration file")
 	flag.Parse()
@@ -25,9 +26,8 @@ func main() {
 	if err == nil {
 		defer d.CloseDebugLog()
 	} else {
-		fmt.Printf("Error: %v", err)
+		d.Println("Error: %v", err)
 	}
-	d.Println(softwareupgrade.CEximchainUpgradeTitle)
 	defer d.Println("Upgrade completed")
 
 	JSONFilename := *jsonFilePtr

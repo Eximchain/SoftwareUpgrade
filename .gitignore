@@ -17,3 +17,7 @@ src/golang.org/
 .vscode
 .DS_Store
 debug
+.cache
+.git
+NodeUpgrade
+Upgrade
