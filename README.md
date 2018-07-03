@@ -14,11 +14,15 @@ Command line parameters
 -json jsonfilename - specifies the name of the JSON configuration file to read from.
 --help - brings up information about the parameters.
 
+Example
+    -json=/Users/chuacw/Documents/GitHub/SoftwareUpgrade/LaunchUpgrade.json -debug=true -debug-log=/Users/chuacw/EximchainUpgrade.log
+
+This launches the upgrader telling it to read the upgrade inforamtion from the file LaunchUpgrade.json, and to enable debug log output to the EximchainUpgrade.log file.
 
 JSON configuration file format
 ==
 
-The JSON configuration file is a JSON object, consists of x objects. The software object defines multiple objects that specifies start, stop and files to copy to the node. 
+The JSON configuration file is a JSON object, which consists of x objects. The software object defines multiple objects that specifies start, stop and files to copy to the target node. 
 
 The common object defines the location of the ssh certificate, the username to use.
 

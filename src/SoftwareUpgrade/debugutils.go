@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 )
@@ -11,6 +12,10 @@ import (
 type DebugLog struct {
 	PrintDebug bool
 	file       *os.File
+}
+
+func init() {
+	log.SetOutput(ioutil.Discard) // prevent double output
 }
 
 func (d *DebugLog) Debug(format string, args ...interface{}) {
@@ -25,7 +30,14 @@ func (d *DebugLog) Debugf(format string, args ...interface{}) {
 	}
 }
 
+func (d *DebugLog) Debugln(format string, args ...interface{}) {
+	if d.PrintDebug {
+		d.Print(format+"\n", args...)
+	}
+}
+
 func (d *DebugLog) Print(format string, args ...interface{}) {
+	fmt.Printf(format, args...)
 	log.Printf(format, args...)
 }
 
