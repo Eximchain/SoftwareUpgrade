@@ -21,3 +21,5 @@ debug
 .git
 NodeUpgrade
 Upgrade
+src/SoftwareUpgrade/vendor/golang.org/
+src/SoftwareUpgrade/vendor/github.com/

@@ -153,8 +153,10 @@ func (sshConfig *SSHConfig) CopyFile(fileReader io.Reader, remotePath string, pe
 
 // CopyFromFile copies the contents of an os.File to a remote location, it will get the length of the file by looking it up from the filesystem.
 func (sshConfig *SSHConfig) CopyFromFile(file os.File, remotePath string, permissions string) error {
-	stat, _ := file.Stat()
-	err := sshConfig.Copy(&file, remotePath, permissions, stat.Size())
+	stat, err := file.Stat()
+	if err == nil {
+		err = sshConfig.Copy(&file, remotePath, permissions, stat.Size())
+	}
 	return err
 }
 

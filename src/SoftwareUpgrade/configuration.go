@@ -3,6 +3,7 @@ package softwareupgrade
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"time"
 )
@@ -108,7 +109,7 @@ func (nodeInfo *NodeInfoContainer) RunUpgrade(sshConfig *SSHConfig) {
 				upgradeStruct.SourceFilePath,
 				upgradeStruct.DestFilePath, upgradeStruct.Permissions)
 			if err != nil {
-				log.Printf("Error during RunUpgrade: %s", err)
+				log.Printf("Error encountered during RunUpgrade: %s", err)
 			}
 		}
 	}
@@ -131,6 +132,24 @@ func (config *UpgradeConfig) GetGroupSoftware(groupName string) (result []string
 	return
 }
 
+// VerifyFilesExist verifies that all the SourceFiles specified exists. If this is true, error is nil.
+// If any of the files specified in the SourceFilePath does not exist, an error msg for each file that doesn't exist is returned.
+func (config *UpgradeConfig) VerifyFilesExist() (err error) {
+	var msg string
+	for softwareKey, softwareInfo := range config.Software {
+		for _, fileInfo := range softwareInfo.Copy {
+			if !FileExists(fileInfo.SourceFilePath) {
+				msg = fmt.Sprintf("%sFile does not exist in %s: %v\n", msg, softwareKey, fileInfo.SourceFilePath)
+			}
+		}
+	}
+	if msg != "" {
+		err = errors.New(msg)
+	}
+	return
+}
+
+// GetNodes return the DNS names of all the nodes in the configuration
 func (config *UpgradeConfig) GetNodes() (result []string) {
 	for _, groupNodesList := range config.SoftwareGroupNodes {
 		for _, nodeDNS := range groupNodesList {
@@ -140,7 +159,7 @@ func (config *UpgradeConfig) GetNodes() (result []string) {
 	return
 }
 
-// getUpgradeInfo gets the specific upgrade information for a particular node's software.
+// GetNodeUpgradeInfo gets the specific upgrade information for a particular node's software.
 func (config *UpgradeConfig) GetNodeUpgradeInfo(node, software string) (result *NodeInfoContainer) {
 	result = &NodeInfoContainer{}
 	nodeInfo := config.Nodes[node]

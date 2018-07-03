@@ -10,8 +10,9 @@ import (
 )
 
 type DebugLog struct {
-	PrintDebug bool
-	file       *os.File
+	PrintDebug   bool
+	PrintConsole bool
+	file         *os.File
 }
 
 func init() {
@@ -36,8 +37,14 @@ func (d *DebugLog) Debugln(format string, args ...interface{}) {
 	}
 }
 
+func (d *DebugLog) EnablePrintConsole() {
+	d.PrintConsole = true
+}
+
 func (d *DebugLog) Print(format string, args ...interface{}) {
-	fmt.Printf(format, args...)
+	if d.PrintConsole {
+		fmt.Printf(format, args...)
+	}
 	log.Printf(format, args...)
 }
 
@@ -54,12 +61,12 @@ func (d *DebugLog) SetOutput(w io.Writer) {
 	log.SetOutput(w)
 }
 
-func (d *DebugLog) EnableDebugLog(LogFilePtr *string) error {
-	if LogFilePtr == nil || *LogFilePtr == "" {
+func (d *DebugLog) EnableDebugLog(LogFilename string) error {
+	if LogFilename == "" {
 		return errors.New("Log filename is empty")
 	}
 	var err error
-	expandedLogPath, err := expand(*LogFilePtr)
+	expandedLogPath, err := expand(LogFilename)
 	if err != nil {
 		return err
 	}

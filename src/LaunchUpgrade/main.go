@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net"
+	"os"
 	"softwareupgrade"
 	"time"
 )
@@ -15,22 +17,38 @@ var (
 )
 
 func main() {
-	d.Println(softwareupgrade.CEximchainUpgradeTitle)
-	debugFlagPtr := flag.Bool("debug", false, "Specifies debug mode")
-	debugLogFilePtr := flag.String("debug-log", `~/Upgrade-debug.log`, "Specifies the debug log filename where logs are written to")
-	// configFilePtr := flag.String("conf", "/Users/chuacw/Documents/GitHub/SoftwareUpgrade/config.ini", "Specifies the configuration file")
-	jsonFilePtr := flag.String("json", "LaunchUpgrade.json", "Specifies the JSON configuration file")
+	fmt.Println(softwareupgrade.CEximchainUpgradeTitle)
+
+	var debugLogFilename, JSONFilename string
+	var disableNodeVerification, disableFileVerification bool
+	flag.BoolVar(&d.PrintDebug, "debug", false, "Specifies debug mode")
+	flag.StringVar(&debugLogFilename, "debug-log", `~/Upgrade-debug.log`, "Specifies the debug log filename where logs are written to")
+	flag.StringVar(&JSONFilename, "json", "", "Specifies the JSON configuration file")
+	flag.BoolVar(&disableNodeVerification, "disable-node-verification", false, "Disables node IP resolution verification")
+	flag.BoolVar(&disableFileVerification, "disable-file-verification", false, "Disables source file existence verification")
 	flag.Parse()
-	d.PrintDebug = *debugFlagPtr
-	err := d.EnableDebugLog(debugLogFilePtr)
+
+	if len(os.Args) <= 1 {
+		flag.PrintDefaults()
+		return
+	}
+
+	var err error
+	if d.PrintDebug && debugLogFilename != "" {
+		err = d.EnableDebugLog(debugLogFilename)
+	}
 	if err == nil {
 		defer d.CloseDebugLog()
 	} else {
 		d.Println("Error: %v", err)
 	}
-	defer d.Println("Upgrade completed")
+	d.Debugln(softwareupgrade.CEximchainUpgradeTitle)
+	d.EnablePrintConsole()
+	appStatus := "aborted"
+	defer func() {
+		d.Println("Upgrade %s", appStatus)
+	}()
 
-	JSONFilename := *jsonFilePtr
 	jsonContents, err := softwareupgrade.ReadDataFromFile(JSONFilename)
 
 	// For processing of the JSON configuration
@@ -38,6 +56,14 @@ func main() {
 		func() {
 			var upgradeconfig softwareupgrade.UpgradeConfig
 			json.Unmarshal(jsonContents, &upgradeconfig)
+
+			if !disableFileVerification {
+				if err := upgradeconfig.VerifyFilesExist(); err != nil {
+					d.Printf("%v", err)
+					return
+				}
+			}
+
 			// GroupNames is the name given to each combination of software
 			SoftwareGroupNames := upgradeconfig.GetGroupNames()
 			d.Print("Groups defined: %+v", SoftwareGroupNames)
@@ -45,6 +71,21 @@ func main() {
 			// Nodes contains the list of the nodes to upgrade.
 			nodes := upgradeconfig.GetNodes()
 			d.Print("Nodes found: %+v", nodes)
+
+			if !disableNodeVerification {
+				// Verify all nodes can be looked up using IP address.
+				var msg string
+				for _, node := range nodes {
+					_, err := net.LookupIP(node)
+					if err != nil {
+						msg = fmt.Sprintf("%sCan't resolve %s\n", msg, node)
+					}
+				}
+				if msg != "" {
+					d.Print(msg)
+					return
+				}
+			}
 
 			for _, softwareGroup := range SoftwareGroupNames {
 				var doPause bool
@@ -73,7 +114,7 @@ func main() {
 						}
 						d.Printf(softwareupgrade.CNodeMsgSSS, nodeDNS, softwareupgrade.CStop, StopResult)
 
-						nodeInfo.RunUpgrade(sshConfig) // the upgrade needs to either move or delete the older version
+						nodeInfo.RunUpgrade(sshConfig) // the upgrade needs to either move or overwrite the older version
 
 						StartCmd := nodeInfo.StartCmd
 						StartResult, err := sshConfig.Run(StartCmd)
@@ -92,10 +133,11 @@ func main() {
 				}
 			}
 
+			appStatus = "completed"
+
 		}()
 	} else {
-		log := fmt.Sprintf("Error reading from JSON configuration file: %s, error: %v", JSONFilename, err)
-		d.Println(log)
+		d.Println(`Error reading from JSON configuration file: "%s", error: %v`, JSONFilename, err)
 	}
 
 }

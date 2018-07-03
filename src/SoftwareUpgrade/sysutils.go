@@ -1,6 +1,7 @@
 package softwareupgrade
 
 import (
+	"os"
 	"os/user"
 	"path/filepath"
 	"strconv"
@@ -21,4 +22,13 @@ func expand(path string) (string, error) {
 		return "", err
 	}
 	return filepath.Join(usr.HomeDir, path[1:]), nil
+}
+
+func FileExists(name string) bool {
+	if _, err := os.Stat(name); err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+	}
+	return true
 }
