@@ -1,9 +1,9 @@
 #!/bin/bash
 
-GOPATH=/Users/chuacw/Documents/GitHub/SoftwareUpgrade
+. ./vars.sh
 
-rm -rf $GOPATH/src/SoftwareUpgrade/vendor/github.com
-rm -rf $GOPATH/src/SoftwareUpgrade/vendor/golang.org
+rm -rf $GOPATH/src/softwareupgrade/vendor/github.com
+rm -rf $GOPATH/src/softwareupgrade/vendor/golang.org
 rm -rf $GOPATH/pkg
 rm -rf $GOPATH/bin
 

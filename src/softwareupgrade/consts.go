@@ -14,5 +14,5 @@ const (
 	CStop       string = "Stop "
 	CNodeMsgSSS string = "Node %s: %s: %v"
 
-	CEximchainUpgradeTitle string = "Eximchain Blockchain Software Upgrade v0.2"
+	CEximchainUpgradeTitle string = "Eximchain Blockchain Software Upgrade v0.3"
 )

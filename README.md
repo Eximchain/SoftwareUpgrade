@@ -15,7 +15,7 @@ Command line parameters
 --help - brings up information about the parameters.
 
 Example
-    -json=/Users/chuacw/Documents/GitHub/SoftwareUpgrade/LaunchUpgrade.json -debug=true -debug-log=/Users/chuacw/EximchainUpgrade.log
+    -json=~/Documents/GitHub/SoftwareUpgrade/LaunchUpgrade.json -debug=true -debug-log=~/EximchainUpgrade.log
 
 This launches the upgrader telling it to read the upgrade inforamtion from the file LaunchUpgrade.json, and to enable debug log output to the EximchainUpgrade.log file.
 
@@ -126,7 +126,7 @@ The groupnodes object lists nodes belonging to groups listed in the software obj
         }
     },
     "common": {
-        "ssh_cert": "/Users/chuacw/.ssh/quorum",
+        "ssh_cert": "~/.ssh/quorum",
         "ssh_username": "ubuntu",
         "group_pause_after_upgrade": "6m15s",
         "software_group": {
