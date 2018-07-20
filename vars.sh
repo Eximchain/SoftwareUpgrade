@@ -1,3 +1,3 @@
 #!/bin/bash
 
-GOPATH=~/Documents/GitHub/SoftwareUpgrade
+export GOPATH=~/Documents/GitHub/SoftwareUpgrade

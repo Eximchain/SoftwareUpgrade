@@ -14,5 +14,6 @@ const (
 	CStop       string = "Stop "
 	CNodeMsgSSS string = "Node %s: %s: %v"
 
-	CEximchainUpgradeTitle string = "Eximchain Blockchain Software Upgrade v0.3"
+	CEximchainUpgradeTitle string = "Eximchain Blockchain Software Upgrade v0.4"
+	CGetCountShouldReturn  string = "GetCount() should return"
 )

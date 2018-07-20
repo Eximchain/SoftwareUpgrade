@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. ./vars.sh
+source ./vars.sh
 
 rm -rf $GOPATH/src/softwareupgrade/vendor/github.com
 rm -rf $GOPATH/src/softwareupgrade/vendor/golang.org

@@ -19,15 +19,29 @@ type (
 	SSHInfo struct {
 		SSHCert     string `json:"ssh_cert"`
 		SSHUserName string `json:"ssh_username"`
+		SSHTimeout  string `json:"ssh_timeout"`
 	}
 
-	// UpgradeStruct contains the information necessary to upgrade a particular software on a node
+	// RollbackStruct contains the necessary information in order to rollback a particular
+	// software to its previous state
+	RollbackStruct struct {
+		DestFilePath string
+	}
+
+	// RollbackSession contains the information required to rollback an upgrade/add session
+	RollbackSession struct {
+		SessionSuffix string             `json:"SessionSuffix"`
+		RollbackInfo  *FailedUpgradeInfo `json:"RollbackInfo"`
+	}
+
+	// UpgradeStruct contains the information necessary to upgrade a particular software
+	// on a node
 	UpgradeStruct struct {
 		SourceFilePath string `json:"Local_Filename"`  // local file path
 		DestFilePath   string `json:"Remote_Filename"` // remote file path
+		UserGroup      string `json:"UserGroup"`       // specifies user:group ownership
 		Permissions    string `json:"Permissions"`     // permissions of the newly copied file
 		VerifyCopy     string `json:"VerifyCopy"`      // command to run to verify copy is successful
-		VerifySum      string `json:"VerifySum"`       // sum to compare in order to verify that the copy is correct
 		RollbackPath   string `json:"RollbackPath"`    // internal rollback
 		BackupStrategy string `json:"BackupStrategy"`  // either copy or move
 	}
@@ -47,7 +61,7 @@ type (
 
 	// FailedUpgradeInfo records the name of nodes together with the software it failed to upgrade.
 	FailedUpgradeInfo struct {
-		FailedNodeSoftware map[string][]string `json:"FailedNodeSoftware"`
+		FailedNodeSoftware map[string][]string `json:"NodeSoftware"`
 	}
 
 	// NodeInfoContainer contains the information necessary to connect to a particular node and its upgrade information
@@ -95,7 +109,7 @@ func (d Duration) MarshalJSON() ([]byte, error) {
 	return json.Marshal(d.String())
 }
 
-// UnmarshalJSON unmarshals theh JSON into native Go structure
+// UnmarshalJSON unmarshals the JSON into native Go structure
 func (d *Duration) UnmarshalJSON(b []byte) error {
 	var v interface{}
 	if err := json.Unmarshal(b, &v); err != nil {
@@ -115,6 +129,37 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 	default:
 		return errors.New("invalid duration")
 	}
+}
+
+// RunRollback runs the rollback for a particular node
+func (nodeInfo *NodeInfoContainer) RunRollback(sshConfig *SSHConfig, rollbackSuffix string) (err error) {
+	if len(nodeInfo.Copy) > 0 {
+		for i := 0; i < len(nodeInfo.Copy)+1; i++ {
+			index := IntToStr(i)
+			upgradeStruct := nodeInfo.Copy[index]
+			if (UpgradeStruct{}) == upgradeStruct || upgradeStruct.SourceFilePath == "" { // skip empty struct, or empty source
+				continue
+			}
+			if upgradeStruct.UserGroup == "" {
+				if upgradeStruct.UserGroup, err = sshConfig.getFileOwnership(upgradeStruct.DestFilePath); err != nil {
+					log.Printf("Unable to get owner for %s, error: %v\n", upgradeStruct.DestFilePath, err)
+				}
+			}
+			rollbackName := upgradeStruct.DestFilePath + rollbackSuffix
+			cmd := fmt.Sprintf("sudo mv %s %s", rollbackName, upgradeStruct.DestFilePath)
+			_, err = sshConfig.Run(cmd)
+			if err == nil {
+				if upgradeStruct.UserGroup != "" {
+					// if fileOwner has been retrieved, change the file ownership to the previous
+					err = sshConfig.changeFileOwnership(upgradeStruct.DestFilePath, upgradeStruct.UserGroup)
+					if err != nil {
+						log.Printf("Unable to set owner for %s, error: %v\n", upgradeStruct.DestFilePath, err)
+					}
+				}
+			}
+		}
+	}
+	return
 }
 
 // RunUpgrade runs the upgrade for a particular node
@@ -144,9 +189,13 @@ func (nodeInfo *NodeInfoContainer) RunUpgrade(sshConfig *SSHConfig) (err error) 
 					}
 				}
 			}
-			var fileOwner string
-			if fileOwner, err = sshConfig.getFileOwnership(upgradeStruct.DestFilePath); err != nil {
-				log.Printf("Unable to get owner for %s\n", upgradeStruct.DestFilePath)
+			if upgradeStruct.Permissions == "" {
+				upgradeStruct.Permissions, err = sshConfig.getFilePermissions(upgradeStruct.DestFilePath)
+			}
+			if upgradeStruct.UserGroup == "" {
+				if upgradeStruct.UserGroup, err = sshConfig.getFileOwnership(upgradeStruct.DestFilePath); err != nil {
+					log.Printf("Unable to get owner for %s, error: %v\n", upgradeStruct.DestFilePath, err)
+				}
 			}
 			if upgradeStruct.BackupStrategy != "" {
 				var cmd, backupName string
@@ -172,8 +221,7 @@ func (nodeInfo *NodeInfoContainer) RunUpgrade(sshConfig *SSHConfig) (err error) 
 				upgradeStruct.DestFilePath, upgradeStruct.Permissions)
 			if err != nil {
 				msg = fmt.Sprintf("%sError encountered during file transfer in RunUpgrade: %v\n", msg, err)
-			}
-			if upgradeStruct.VerifyCopy != "" {
+			} else if upgradeStruct.VerifyCopy != "" {
 				switch upgradeStruct.VerifyCopy {
 				case "md5":
 					{
@@ -185,10 +233,10 @@ func (nodeInfo *NodeInfoContainer) RunUpgrade(sshConfig *SSHConfig) (err error) 
 					}
 				}
 				// file transfer successful since the hash is the same
-				if sourceHash == destHash {
-					if fileOwner != "" {
+				if destHash != "" && sourceHash != "" && sourceHash == destHash {
+					if upgradeStruct.UserGroup != "" {
 						// if fileOwner has been retrieved, change the file ownership to the previous
-						err = sshConfig.changeFileOwnership(upgradeStruct.DestFilePath, fileOwner)
+						err = sshConfig.changeFileOwnership(upgradeStruct.DestFilePath, upgradeStruct.UserGroup)
 					}
 					if err == nil {
 						log.Println("Upgrade successful!")
@@ -333,25 +381,51 @@ func (config *UpgradeConfig) GetNodeUpgradeInfo(node, software string) (result *
 	return
 }
 
+// NewFailedUpgradeInfo creates a structure necessary to contain failed upgrades
 func NewFailedUpgradeInfo() *FailedUpgradeInfo {
 	result := &FailedUpgradeInfo{}
 	result.FailedNodeSoftware = make(map[string][]string)
 	return result
 }
 
+// Clear clears the mapping
+func (failedUpgradeInfo *FailedUpgradeInfo) Clear() {
+	failedUpgradeInfo.FailedNodeSoftware = nil
+}
+
+// GetNodeSoftwareCount gets the number of failed upgrades for a particular node
 func (failedUpgradeInfo *FailedUpgradeInfo) GetNodeSoftwareCount(node string) int {
 	return len(failedUpgradeInfo.FailedNodeSoftware[node])
 }
 
+func (failedUpgradeInfo *FailedUpgradeInfo) GetCount() (totalCount int) {
+	for k, _ := range failedUpgradeInfo.FailedNodeSoftware {
+		totalCount += len(failedUpgradeInfo.FailedNodeSoftware[k])
+	}
+	return
+}
+
+// AddNodeSoftware adds the node and software to the failed upgrades
 func (failedUpgradeInfo *FailedUpgradeInfo) AddNodeSoftware(node, software string) {
 	if failedUpgradeInfo == nil {
 		panic("Iniatialize failedUpgradeInfo first!")
+	}
+	// Do not allow duplicates
+	if failedUpgradeInfo.ExistsNodeSoftware(node, software) {
+		return
 	}
 	softwares := failedUpgradeInfo.FailedNodeSoftware[node]
 	softwares = append(softwares, software)
 	failedUpgradeInfo.FailedNodeSoftware[node] = softwares
 }
 
+// Empty returns true if failedUpgradeInfo's FailedNodeSoftware does not have any keys
+func (failedUpgradeInfo *FailedUpgradeInfo) Empty() (empty bool) {
+	empty = len(failedUpgradeInfo.FailedNodeSoftware) == 0
+	return
+}
+
+// ExistsNodeSoftware returns true if a particular software for a nade exists in the failed upgrade info
 func (failedUpgradeInfo *FailedUpgradeInfo) ExistsNodeSoftware(node, software string) (result bool) {
 	if failedUpgradeInfo == nil || failedUpgradeInfo.FailedNodeSoftware == nil {
 		return false
@@ -365,17 +439,31 @@ func (failedUpgradeInfo *FailedUpgradeInfo) ExistsNodeSoftware(node, software st
 	return false
 }
 
+// RemoveNodeSoftware removes a software from a node
 func (failedUpgradeInfo *FailedUpgradeInfo) RemoveNodeSoftware(node, software string) {
 	softwares := failedUpgradeInfo.FailedNodeSoftware[node]
 	for i, v := range softwares {
 		if v == software {
 			softwares = append(softwares[:i], softwares[i+1:]...)
+			// removes the key when there's no software anymore
+			if len(softwares) == 0 {
+				delete(failedUpgradeInfo.FailedNodeSoftware, node)
+				return
+			}
+			// breaks once a match is found. assumes no duplicates
 			break
 		}
 	}
 	failedUpgradeInfo.FailedNodeSoftware[node] = softwares
 }
 
+// FindNode returns the software for a node
 func (failedUpgradeInfo *FailedUpgradeInfo) FindNode(node string) []string {
 	return failedUpgradeInfo.FailedNodeSoftware[node]
+}
+
+func NewRollbackSession(aSessionSuffix string) (result *RollbackSession) {
+	result = &RollbackSession{SessionSuffix: aSessionSuffix}
+	result.RollbackInfo = NewFailedUpgradeInfo()
+	return
 }

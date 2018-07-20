@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"strings"
 	"sync"
@@ -41,19 +40,9 @@ type (
 )
 
 var (
-	backupSuffix   string
 	sshConfigCache map[string]*SSHConfig
+	sshTimeout     time.Duration
 )
-
-func init() {
-	t := time.Now()
-	backupSuffix = strings.Replace(t.Format(time.RFC3339), ":", "-", -1)
-}
-
-// GetBackupSuffix returns the backup suffix
-func GetBackupSuffix() string {
-	return backupSuffix
-}
 
 // EnsureSSHConfigCache initializes the sshConfigCache so it can be used to cache SSHConfig
 func EnsureSSHConfigCache() {
@@ -150,7 +139,7 @@ func (sshConfig *SSHConfig) Connect() error {
 			return err
 		}
 
-		// this sends keepalive packets every 5 seconds
+		// this sends keepalive packets every 5 seconds(configurable) so that the client doesn't timeout
 		// there's no useful response from these, so abort if there's an error
 		go func() {
 			t := time.NewTicker(sshConfig.keepAliveDuration)
@@ -310,8 +299,8 @@ func (sshConfig *SSHConfig) getClientConfig() (*ssh.ClientConfig, error) {
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
-	if parsedTimeout, err := time.ParseDuration("3s"); err == nil {
-		config.Timeout = parsedTimeout
+	if sshTimeout != 0 {
+		config.Timeout = sshTimeout
 	}
 	return config, nil
 }
@@ -334,6 +323,12 @@ func (sshConfig *SSHConfig) GetOS() string {
 func (sshConfig *SSHConfig) getFileOwnership(filename string) (owner string, err error) {
 	cmd := fmt.Sprintf("stat --printf=%%U:%%G %s", filename)
 	owner, err = sshConfig.Run(cmd)
+	return
+}
+
+func (sshConfig *SSHConfig) getFilePermissions(filename string) (permissions string, err error) {
+	cmd := fmt.Sprintf("stat -c%%04a %s", filename)
+	permissions, err = sshConfig.Run(cmd)
 	return
 }
 
@@ -361,18 +356,9 @@ func (sshConfig *SSHConfig) internalExists(invert, funcName, path string) (resul
 	return
 }
 
-func (sshConfig *SSHConfig) internalSum(app, path, localOrRemote string) (result string, err error) {
+func (sshConfig *SSHConfig) internalSum(app, path string) (result string, err error) {
 	command := fmt.Sprintf("%s %s", app, path)
-	var runResult string
-	if localOrRemote == "local" || sshConfig.HostIPOrAddr == "" || sshConfig.HostIPOrAddr == "localhost" {
-		cmd := exec.Command(app, path)
-		var b bytes.Buffer
-		cmd.Stdout = &b // get output
-		err = cmd.Run()
-		runResult = b.String()
-	} else {
-		runResult, err = sshConfig.Run(command)
-	}
+	runResult, err := sshConfig.Run(command)
 	if err != nil {
 		return
 	}
@@ -389,7 +375,7 @@ func (sshConfig *SSHConfig) Interrupt(processName string) (result string, err er
 
 // Md5sum calculates the MD5 for the given path on the host specified in the given SSHConfig
 func (sshConfig *SSHConfig) Md5sum(path string) (result string, err error) {
-	return sshConfig.internalSum("md5sum", path, "")
+	return sshConfig.internalSum("md5sum", path)
 }
 
 // OpenSession opens a SSH session to the host specified in the given SSHConfig
@@ -436,7 +422,7 @@ func (sshConfig *SSHConfig) Run(cmd string) (string, error) {
 
 // Sha256sum calculates the SHA256 for the given path on the host specified in the given SSHConfig
 func (sshConfig *SSHConfig) Sha256sum(path string) (result string, err error) {
-	return sshConfig.internalSum("sha256sum", path, "")
+	return sshConfig.internalSum("sha256sum", path)
 }
 
 // Signal sends the specified signal to the given processName…
@@ -448,5 +434,10 @@ func (sshConfig *SSHConfig) Signal(processName, signal string) (result string, e
 
 // Sum calculates the checksum of any given file on the host specified in the given SSHConfig
 func (sshConfig *SSHConfig) Sum(path string) (result string, err error) {
-	return sshConfig.internalSum("sum", path, "")
+	return sshConfig.internalSum("sum", path)
+}
+
+// SetSSHTimeout sets the global SSH timeout, which will be picked up by when NewSSHConfig is called.
+func SetSSHTimeout(t time.Duration) {
+	sshTimeout = t
 }

@@ -168,16 +168,6 @@ func TestSSHConfig_Connect(t *testing.T) {
 	}
 }
 
-func TestSSHConfig_internalSum(t *testing.T) {
-	sshConfig := NewSSHConfig("", "", "")
-	filename := "/tmp/upgrade3/block-metrics.py"
-	gotResult, err := sshConfig.internalSum("sha256", filename, "local")
-	if err != nil {
-		t.Fatal("Failed in testing internalSum")
-	}
-	fmt.Printf("SHA256 for %s: %s\n", filename, gotResult)
-}
-
 func TestSSHConfig_GetOS(t *testing.T) {
 	sshConfig := NewSSHConfig("ubuntu", "~/.ssh/quorum", "18.232.179.208")
 	if sshConfig.GetOS() == "" {
