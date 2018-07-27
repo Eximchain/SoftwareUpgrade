@@ -186,7 +186,19 @@ func upgradeOrRollback(jsonContents []byte) {
 		}
 	case appActionDeleteRollback:
 		{
-			if !softwareupgrade.FileExists(rollbackInfoFilename) {
+			if softwareupgrade.FileExists(rollbackInfoFilename) {
+				data, err := softwareupgrade.ReadDataFromFile(rollbackInfoFilename)
+				if err == nil {
+					err = json.Unmarshal(data, &rollbackSession)
+					if err != nil {
+						// Clear the data so that it's not persisted again
+						rollbackSession.RollbackInfo.Clear()
+						failedUpgradeInfo.Clear()
+						return
+					}
+					rollbackSuffix = rollbackSession.SessionSuffix
+				}
+			} else {
 				DebugLog.Printf("Can't delete rollback as %s doesn't exist.\n", rollbackInfoFilename)
 				return
 			}
@@ -311,7 +323,7 @@ func upgradeOrRollback(jsonContents []byte) {
 						}
 					case appActionDeleteRollback:
 						{
-							actionMsg = fmt.Sprintf("Deleting software: %s from node: %s", software, node)
+							actionMsg = fmt.Sprintf("Deleting rollback for software: %s from node: %s", software, node)
 						}
 					case appActionResumeUpgrade:
 						{
@@ -434,11 +446,11 @@ func main() {
 		{
 			action = appActionAdd
 		}
-	case "delete-rollback":
+	case "delete", "delete-rollback":
 		{
 			action = appActionDeleteRollback
 		}
-	case "resume-upgrade":
+	case "resume", "resume-upgrade":
 		{
 			action = appActionResumeUpgrade
 		}
@@ -453,8 +465,10 @@ func main() {
 	}
 
 	// Ensures that JSONFilename is provided by user
-	// and that mode must either be rollback or upgrade
-	if len(os.Args) <= 1 || jsonFilename == "" || !action.isValidAction() {
+	// and that mode must either be rollback or upgrade and that the given
+	// JSON configuration file must exist
+	if len(os.Args) <= 1 || jsonFilename == "" || !action.isValidAction() ||
+		!softwareupgrade.FileExists(jsonFilename) {
 		flag.PrintDefaults()
 		return
 	}

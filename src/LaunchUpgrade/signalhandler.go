@@ -26,14 +26,12 @@ func EnableSignalHandler() {
 	signal.Notify(signalCh, os.Interrupt, syscall.SIGHUP, syscall.SIGINT,
 		syscall.SIGTERM, syscall.SIGQUIT)
 	go func() {
-		for {
-			s := <-signalCh
-			if s != syscall.SIGQUIT {
-				DebugLog.Println("Please wait while finishing up...")
-			}
-			terminated = true
-			return
+		s := <-signalCh
+		if s != syscall.SIGQUIT {
+			DebugLog.Println("Please wait while finishing up...")
 		}
+		terminated = true
+		return
 	}()
 }
 
