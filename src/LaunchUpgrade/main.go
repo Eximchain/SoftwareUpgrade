@@ -8,39 +8,25 @@ import (
 	"os"
 	"path"
 	"softwareupgrade"
+	"strings"
 	"time"
 )
 
-type (
-	tAction int
-)
-
-const (
-	appActionUnknown tAction = iota
-	appActionUpgrade
-	appActionRollback
-)
-
-func isValidAction(action tAction) bool {
-	return action >= appActionUpgrade && action <= appActionRollback
-}
-
 var (
-	d                                                        softwareupgrade.DebugLog
 	commonSSLcertContent                                     []byte
 	userSSLcertContent                                       []byte
 	appStatus                                                string
 	debugLogFilename, failedNodesFilename                    string
 	rollbackInfoFilename                                     string
 	jsonFilename                                             string
+	debug                                                    bool
 	disableNodeVerification, disableFileVerification, dryRun bool
 	disableTargetDirVerification                             bool
-	jsonContents                                             []byte
 	mode, rollbackSuffix                                     string
 	action                                                   tAction
 )
 
-func upgradeOrRollback() {
+func upgradeOrRollback(jsonContents []byte) {
 	var upgradeconfig softwareupgrade.UpgradeConfig
 	// Parse the JSON
 	json.Unmarshal(jsonContents, &upgradeconfig)
@@ -56,104 +42,117 @@ func upgradeOrRollback() {
 		softwareupgrade.SetSSHTimeout(5 * time.Second)
 	}
 
-	d.Println("This session PID: %d rollback file: %s", os.Getpid(), rollbackInfoFilename)
+	DebugLog.Println("This session PID: %d rollback file: %s", os.Getpid(), rollbackInfoFilename)
 
 	if !disableFileVerification {
 		if err := upgradeconfig.VerifyFilesExist(); err != nil {
-			d.Printf("%v", err)
+			DebugLog.Printf("%v\n", err)
 			return
 		}
-		d.Println("All source files verified.")
+		DebugLog.Println("All source files verified.")
 	}
 
 	// GroupNames is the name given to each combination of software
 	SoftwareGroupNames := upgradeconfig.GetGroupNames()
-	d.Println("%d groups defined: %v", len(SoftwareGroupNames), SoftwareGroupNames)
+	DebugLog.Println("%d groups defined: %v", len(SoftwareGroupNames), SoftwareGroupNames)
 
 	// Nodes contains the list of the nodes to upgrade.
 	nodes := upgradeconfig.GetNodes()
-	d.Println("%d nodes found: %v", len(nodes), nodes)
+	DebugLog.Println("%d nodes found: %v", len(nodes), nodes)
 
 	if !disableNodeVerification {
 		// Verify all nodes can be looked up using IP address.
-		var msg string
+		var (
+			msg                  string
+			failCount, nodeCount int
+		)
 		for _, node := range nodes {
 			_, err := net.LookupIP(node)
 			if err != nil {
 				msg = fmt.Sprintf("%sCan't resolve %s\n", msg, node)
+				failCount++
+			} else {
+				nodeCount++
 			}
 		}
 		if msg != "" {
-			d.Print(msg)
+			DebugLog.Print(msg)
 			return
 		}
-		d.Println("All nodes verified to be resolvable to IP addresses.")
+		if nodeCount == len(nodes) && nodeCount > 0 && failCount == 0 {
+			DebugLog.Println("All nodes verified to be resolvable to IP addresses.")
+		}
 	}
 
 	if !disableTargetDirVerification {
-		// Verify all target directories exist. This is also an opportunity
-		// to ensure all nodes can be connected to.
-		type (
-			DirExistStruct struct {
-				dir   string
-				exist bool
-			}
-		)
-		var (
-			msg string
-		)
-		d.Println("Verifying target directories, please wait.")
-		hostDirsCache := make(map[string]DirExistStruct)
-		dupErr := make(map[string]bool)
-		for _, softwareGroup := range SoftwareGroupNames {
-			// Look up the software for each softwareGroup
-			groupSoftware := upgradeconfig.GetGroupSoftware(softwareGroup)
+		// Only perform directory verification if there is at least 1 node
+		if nodeCount := upgradeconfig.GetNodeCount(); nodeCount > 0 {
+			DebugLog.Println("Verifying target directories, please wait.")
 
-			// Get the nodes for this group
-			groupNodes := upgradeconfig.GetGroupNodes(softwareGroup)
-			for _, node := range groupNodes {
-				if len(groupSoftware) == 0 {
-					continue
+			// Verify all target directories exist. This is also an opportunity
+			// to ensure all nodes can be connected to.
+			type (
+				DirExistStruct struct {
+					dir   string
+					exist bool
 				}
-				for _, software := range groupSoftware {
-					nodeInfo := upgradeconfig.GetNodeUpgradeInfo(node, software)
-					sshConfig := softwareupgrade.NewSSHConfig(nodeInfo.SSHUserName, nodeInfo.SSHCert, node)
-					for _, dirInfo := range nodeInfo.Copy {
-						remoteDir := path.Dir(dirInfo.DestFilePath)
-						hostDir := fmt.Sprintf("%s-%s", node, remoteDir)
-						hostDirStruct := hostDirsCache[hostDir]
-						if hostDirStruct == (DirExistStruct{}) {
-							var err error
-							hostDirStruct.dir = remoteDir
-							if hostDirStruct.exist, err = sshConfig.DirectoryExists(remoteDir); err == nil {
-								hostDirsCache[hostDir] = hostDirStruct
-								if !hostDirStruct.exist {
-									msg = fmt.Sprintf("%sRemote directory: %s doesn't exist on node: %s\n",
-										msg, remoteDir, node)
-								}
-							} else {
-								errmsg := fmt.Sprintf("Node: %s error: %v", node, err)
-								errExist := dupErr[errmsg]
-								if !errExist {
-									msg = fmt.Sprintf("%s%s\n", msg, errmsg)
-									dupErr[errmsg] = true
+			)
+			var (
+				msg string
+			)
+
+			hostDirsCache := make(map[string]DirExistStruct)
+			dupErr := make(map[string]bool)
+			for _, softwareGroup := range SoftwareGroupNames {
+				// Look up the software for each softwareGroup
+				groupSoftware := upgradeconfig.GetGroupSoftware(softwareGroup)
+
+				// Get the nodes for this group
+				groupNodes := upgradeconfig.GetGroupNodes(softwareGroup)
+				for _, node := range groupNodes {
+					if len(groupSoftware) == 0 {
+						continue
+					}
+					for _, software := range groupSoftware {
+						nodeInfo := upgradeconfig.GetNodeUpgradeInfo(node, software)
+						sshConfig := softwareupgrade.NewSSHConfig(nodeInfo.SSHUserName, nodeInfo.SSHCert, node)
+						for _, dirInfo := range nodeInfo.Copy {
+							remoteDir := path.Dir(dirInfo.DestFilePath)
+							hostDir := fmt.Sprintf("%s-%s", node, remoteDir)
+							hostDirStruct := hostDirsCache[hostDir]
+							if hostDirStruct == (DirExistStruct{}) {
+								var err error
+								hostDirStruct.dir = remoteDir
+								if hostDirStruct.exist, err = sshConfig.DirectoryExists(remoteDir); err == nil {
+									hostDirsCache[hostDir] = hostDirStruct
+									if !hostDirStruct.exist {
+										msg = fmt.Sprintf("%sRemote directory: %s doesn't exist on node: %s\n",
+											msg, remoteDir, node)
+									}
+								} else {
+									errmsg := fmt.Sprintf("Node: %s error: %v", node, err)
+									errExist := dupErr[errmsg]
+									if !errExist {
+										msg = fmt.Sprintf("%s%s\n", msg, errmsg)
+										dupErr[errmsg] = true
+									}
 								}
 							}
 						}
 					}
 				}
 			}
+			if msg != "" {
+				DebugLog.Println("Error(s) encountered in target directory verification.")
+				DebugLog.Printf("%v", msg)
+				return
+			}
+			DebugLog.Println("All remote directories verified.")
 		}
-		if msg != "" {
-			d.Println("Error(s) encountered in target directory verification.")
-			d.Printf("%v", msg)
-			return
-		}
-		d.Println("All remote directories verified.")
 	}
 
 	failedUpgradeInfo := softwareupgrade.NewFailedUpgradeInfo()
-	rollbackInfo := softwareupgrade.NewRollbackSession(rollbackSuffix)
+	rollbackSession := softwareupgrade.NewRollbackSession(rollbackSuffix)
 
 	var resumeUpgrade bool
 	defer func() {
@@ -165,36 +164,58 @@ func upgradeOrRollback() {
 			if err == nil {
 				softwareupgrade.SaveDataToFile(failedNodesFilename, data)
 			} else {
-				d.Println("Unable to marshal the failed upgrade information.")
+				DebugLog.Println("Unable to marshal the failed upgrade information.")
 			}
 		}
 
-		if !rollbackInfo.RollbackInfo.Empty() {
-			data, err := json.Marshal(rollbackInfo)
+		// Save the rollback data for either deletion, or rollback
+		if !rollbackSession.RollbackInfo.Empty() {
+			data, err := json.Marshal(rollbackSession)
 			if err == nil {
 				softwareupgrade.SaveDataToFile(rollbackInfoFilename, data)
 			} else {
-				d.Println("Unable to marshal the failed upgrade information.")
+				DebugLog.Println("Unable to save the information for rollback.")
 			}
 		}
 
 	}()
 
 	switch action {
+	case appActionAdd:
+		{
+		}
+	case appActionDeleteRollback:
+		{
+			if !softwareupgrade.FileExists(rollbackInfoFilename) {
+				DebugLog.Printf("Can't delete rollback as %s doesn't exist.\n", rollbackInfoFilename)
+				return
+			}
+		}
+	case appActionResumeUpgrade:
+		{
+			if !softwareupgrade.FileExists(failedNodesFilename) {
+				DebugLog.Printf("Can't resume upgrade as %s doesn't exist.\n", failedNodesFilename)
+				return
+			}
+			resumeUpgrade = true
+		}
 	case appActionRollback:
 		{
 			if softwareupgrade.FileExists(rollbackInfoFilename) {
 				data, err := softwareupgrade.ReadDataFromFile(rollbackInfoFilename)
 				if err == nil {
-					err = json.Unmarshal(data, &rollbackInfo)
+					err = json.Unmarshal(data, &rollbackSession)
 					if err != nil {
 						// Clear the data so that it's not persisted again
-						rollbackInfo.RollbackInfo.Clear()
+						rollbackSession.RollbackInfo.Clear()
 						failedUpgradeInfo.Clear()
 						return
 					}
-					rollbackSuffix = rollbackInfo.SessionSuffix
+					rollbackSuffix = rollbackSession.SessionSuffix
 				}
+			} else {
+				DebugLog.Printf("Can't rollback as %s doesn't exist\n", rollbackInfoFilename)
+				return
 			}
 		}
 	case appActionUpgrade:
@@ -206,9 +227,10 @@ func upgradeOrRollback() {
 					err = json.Unmarshal(data, &failedUpgradeInfo.FailedNodeSoftware)
 					resumeUpgrade = err == nil && len(failedUpgradeInfo.FailedNodeSoftware) > 0
 				} else {
-					d.Printf("Unable to read data from the failed nodes session due to error: %v", err)
+					DebugLog.Printf("Unable to read data from the failed nodes session due to error: %v", err)
 				}
 			} else {
+				DebugLog.Println("Building node software list...")
 				// Build the failedNodeSoftware list since this is a new session
 				for _, softwareGroup := range SoftwareGroupNames {
 					groupSoftware := upgradeconfig.GetGroupSoftware(softwareGroup)
@@ -219,12 +241,13 @@ func upgradeOrRollback() {
 						}
 					}
 				}
+				DebugLog.Println("Node software list built.")
 			}
 		}
 	}
 	defer func() {
 		// shows upgrade/rollback aborted/completed on app completion
-		d.Println("%s %s", mode, appStatus)
+		DebugLog.Println("%s %s", mode, appStatus)
 	}()
 
 	appStatus = "aborted"
@@ -234,109 +257,157 @@ func upgradeOrRollback() {
 	}
 
 	for _, softwareGroup := range SoftwareGroupNames {
-		var doPause bool
 		// Look up the software for each softwareGroup
-		d.Printf("Performing %s for software group: %s\n", mode, softwareGroup)
 		groupSoftware := upgradeconfig.GetGroupSoftware(softwareGroup)
 
 		// Get the nodes for this group
 		groupNodes := upgradeconfig.GetGroupNodes(softwareGroup)
-		for _, node := range groupNodes {
-			if len(groupSoftware) == 0 {
-				continue
+		if len(groupNodes) > 0 {
+			var doPause bool
+			DebugLog.Printf("Performing %s for software group: %s\n", mode, softwareGroup)
+			for _, node := range groupNodes {
+				if len(groupSoftware) == 0 {
+					continue
+				}
+				if Terminated() {
+					break
+				}
+				doPause = true
+				for _, software := range groupSoftware {
+					if Terminated() {
+						break
+					}
+
+					// If this is a rollback, and the node and software doesn't exist
+					// in the rollback data, then skip to the next one
+					if action == appActionRollback {
+						if !rollbackSession.RollbackInfo.ExistsNodeSoftware(node, software) {
+							continue
+						}
+					}
+
+					nodeInfo := upgradeconfig.GetNodeUpgradeInfo(node, software)
+
+					// If this is a resume operation, and the node and software doesn't
+					// exist in the failedUpgradeInfo then skip the current node and software.
+					if resumeUpgrade {
+						if !failedUpgradeInfo.ExistsNodeSoftware(node, software) {
+							DebugLog.Println("Skipping software %s for node %s", software, node)
+							continue
+						}
+					}
+
+					// This message should be appropriate for different modes
+					// It should be 1) Adding software %s to node %s
+					//              2) Rolling back software %s for node %s
+					//              3) Upgrading node %s with software %s
+					//              4) Resuming upgrade for node %s with software %s
+					//              5) Deleting software %s from node %s
+					var actionMsg string
+					switch action {
+					case appActionAdd:
+						{
+							actionMsg = fmt.Sprintf("Adding software: %s to node: %s", software, node)
+						}
+					case appActionDeleteRollback:
+						{
+							actionMsg = fmt.Sprintf("Deleting software: %s from node: %s", software, node)
+						}
+					case appActionResumeUpgrade:
+						{
+							actionMsg = fmt.Sprintf("Resuming upgrade for node: %s with software: %s", node, software)
+						}
+					case appActionRollback:
+						{
+							actionMsg = fmt.Sprintf("Rolling back software: %s for node: %s", software, node)
+						}
+					case appActionUpgrade:
+						{
+							actionMsg = fmt.Sprintf("Upgrading node: %s with software: %s\n", node, software)
+						}
+					}
+					DebugLog.Println(actionMsg)
+					sshConfig := softwareupgrade.NewSSHConfig(nodeInfo.SSHUserName, nodeInfo.SSHCert, node)
+
+					// Only stop the software if it's not Delete Rollback
+					if action != appActionDeleteRollback {
+						// Stop the running software, upgrade it, then start the software
+						StopCmd := nodeInfo.StopCmd
+						StopResult, err := sshConfig.Run(StopCmd)
+						if err != nil { // If stop failed, skip the upgrade!
+							DebugLog.Printf(softwareupgrade.CNodeMsgSSS, node, softwareupgrade.CStop, err)
+							continue
+						}
+						DebugLog.Printf(softwareupgrade.CNodeMsgSSS, node, softwareupgrade.CStop, StopResult)
+					}
+
+					if !dryRun {
+						switch action {
+						case appActionDeleteRollback:
+							{
+								err := nodeInfo.RunDeleteRollback(sshConfig, rollbackSuffix)
+								if err != nil {
+									DebugLog.Println("Failed to delete rollback for node: %s, software: %s", node, software)
+								} else {
+									DebugLog.Println("Deleted rollback for node: %s, software: %s", node, software)
+								}
+							}
+						case appActionRollback:
+							{
+
+								err := nodeInfo.RunRollback(sshConfig, rollbackSuffix)
+								if err != nil {
+									DebugLog.Println("Rollback failed for node: %s, software: %s due to %v", node, software, err)
+								} else {
+									DebugLog.Println("Rolled back node: %s with software: %s successfully", node, software)
+									rollbackSession.RollbackInfo.RemoveNodeSoftware(node, software)
+								}
+							}
+						case appActionUpgrade:
+							{
+								err := nodeInfo.RunUpgrade(sshConfig) // the upgrade needs to either move or overwrite the older version
+								if err != nil {
+									DebugLog.Println("Error during RunUpgrade: %v", err)
+								} else {
+									DebugLog.Println("Upgraded node: %s with software %s successfully!", node, software)
+									failedUpgradeInfo.RemoveNodeSoftware(node, software)
+									rollbackSession.RollbackInfo.AddNodeSoftware(node, software)
+								}
+							}
+						}
+					}
+
+					// Only start the software if it's not a delete rollback
+					if action != appActionDeleteRollback {
+						StartCmd := nodeInfo.StartCmd
+						StartResult, err := sshConfig.Run(StartCmd)
+						if err != nil {
+							DebugLog.Printf(softwareupgrade.CNodeMsgSSS, node, softwareupgrade.CStart, err)
+							continue
+						}
+						DebugLog.Printf(softwareupgrade.CNodeMsgSSS, node, softwareupgrade.CStart, StartResult)
+					}
+				}
 			}
 			if Terminated() {
 				break
 			}
-			doPause = true
-			for _, software := range groupSoftware {
-				if Terminated() {
-					break
-				}
-
-				// If this is a rollback, and the node and software doesn't existn
-				// in the rollback data, then skip to the next one
-				if action == appActionRollback {
-					if !rollbackInfo.RollbackInfo.ExistsNodeSoftware(node, software) {
-						continue
-					}
-				}
-
-				nodeInfo := upgradeconfig.GetNodeUpgradeInfo(node, software)
-
-				// If this is a resume operation, and the node and software doesn't
-				// exist in the failedUpgradeInfo then skip the current node and software.
-				if resumeUpgrade {
-					if !failedUpgradeInfo.ExistsNodeSoftware(node, software) {
-						d.Println("Skipping software %s for node %s", software, node)
-						continue
-					}
-				}
-
-				d.Print("Upgrading node: %s with software: %s\n", node, software)
-				sshConfig := softwareupgrade.NewSSHConfig(nodeInfo.SSHUserName, nodeInfo.SSHCert, node)
-
-				// Stop the running software, upgrade it, then start the software
-				StopCmd := nodeInfo.StopCmd
-				StopResult, err := sshConfig.Run(StopCmd)
-				if err != nil { // If stop failed, skip the upgrade!
-					d.Printf(softwareupgrade.CNodeMsgSSS, node, softwareupgrade.CStop, err)
-					continue
-				}
-				d.Printf(softwareupgrade.CNodeMsgSSS, node, softwareupgrade.CStop, StopResult)
-
-				if !dryRun {
-					switch action {
-					case appActionRollback:
-						{
-
-							err := nodeInfo.RunRollback(sshConfig, rollbackSuffix)
-							if err != nil {
-								d.Println("Error during rollback: %v", err)
-							} else {
-								d.Println("Rollback node: %s with software %s successfully", node, software)
-								rollbackInfo.RollbackInfo.RemoveNodeSoftware(node, software)
-							}
-						}
-					case appActionUpgrade:
-						{
-							err := nodeInfo.RunUpgrade(sshConfig) // the upgrade needs to either move or overwrite the older version
-							if err != nil {
-								d.Println("Error during RunUpgrade: %v", err)
-							} else {
-								d.Println("Upgraded node: %s with software %s successfully!", node, software)
-								failedUpgradeInfo.RemoveNodeSoftware(node, software)
-								rollbackInfo.RollbackInfo.AddNodeSoftware(node, software)
-							}
-						}
-					}
-				}
-
-				StartCmd := nodeInfo.StartCmd
-				StartResult, err := sshConfig.Run(StartCmd)
-				if err != nil {
-					d.Printf(softwareupgrade.CNodeMsgSSS, node, softwareupgrade.CStart, err)
-					continue
-				}
-				d.Printf(softwareupgrade.CNodeMsgSSS, node, softwareupgrade.CStart, StartResult)
+			if doPause { // pause only if upgrade has been run
+				DebugLog.Printf("Pausing for %s...", upgradeconfig.Common.GroupPause)
+				time.Sleep(upgradeconfig.Common.GroupPause.Duration)
+				DebugLog.Println(" completed!")
+				doPause = false // reset
 			}
+			DebugLog.Println("") // leave one line between one group and next group
+		} else {
+			DebugLog.Printf("No nodes for software group: %s\n", softwareGroup)
 		}
-		if Terminated() {
-			break
-		}
-		if doPause { // pause only if upgrade has been run
-			d.Printf("Pausing for %s...", upgradeconfig.Common.GroupPause)
-			time.Sleep(upgradeconfig.Common.GroupPause.Duration)
-			d.Println(" completed!")
-		}
-		d.Println("") // leave one line between one group and next group
 	}
 
 	if !Terminated() {
 		appStatus = "completed"
 	}
 	softwareupgrade.ClearSSHConfigCache()
-
 }
 
 func main() {
@@ -344,20 +415,33 @@ func main() {
 
 	rollbackSuffix = softwareupgrade.GetBackupSuffix()
 	defaultRollbackName := fmt.Sprintf("~/Upgrade-Rollback-%s.session", rollbackSuffix)
+	defaultFailedNodesFilename := fmt.Sprintf("~/Upgrade-Failed-%s.session", rollbackSuffix)
 
-	flag.StringVar(&mode, "mode", "upgrade", "mode (upgrade|rollback)")
-	flag.BoolVar(&d.PrintDebug, "debug", false, "Specifies debug mode")
+	flag.StringVar(&mode, "mode", "upgrade", "mode (add|resume-upgrade|upgrade|rollback|delete-rollback)")
+	flag.BoolVar(&debug, "debug", false, "Specifies debug mode")
 	flag.StringVar(&debugLogFilename, "debug-log", `~/Upgrade-debug.log`, "Specifies the debug log filename where logs are written to")
 	flag.StringVar(&jsonFilename, "json", "", "Specifies the JSON configuration file to load nodes from")
-	flag.StringVar(&failedNodesFilename, "failed-nodes", "~/Upgrade-Failed.session", "Specifes the file to load/save nodes that failed to upgrade")
-	flag.StringVar(&rollbackInfoFilename, "rollback-nodes", defaultRollbackName, "Specifies the rollback filename for this session")
+	flag.StringVar(&failedNodesFilename, "failed-nodes", defaultFailedNodesFilename, "Specifes the file to load/save nodes that failed to upgrade")
+	flag.StringVar(&rollbackInfoFilename, "rollback-filename", defaultRollbackName, "Specifies the rollback filename for this session")
 	flag.BoolVar(&disableNodeVerification, "disable-node-verification", false, "Disables node IP resolution verification")
 	flag.BoolVar(&disableFileVerification, "disable-file-verification", false, "Disables source file existence verification")
 	flag.BoolVar(&disableTargetDirVerification, "disable-target-dir-verification", false, "Disables target directory existence verification")
-	flag.BoolVar(&dryRun, "dry-run", true, "Enables testing mode, doesn't upgrade, but starts and stops the software running on remote nodes")
+	flag.BoolVar(&dryRun, "dry-run", true, "Enables testing mode, doesn't perform actual action, but starts and stops the software running on remote nodes")
 	flag.Parse()
 
-	switch mode {
+	switch strings.ToLower(mode) {
+	case "add":
+		{
+			action = appActionAdd
+		}
+	case "delete-rollback":
+		{
+			action = appActionDeleteRollback
+		}
+	case "resume-upgrade":
+		{
+			action = appActionResumeUpgrade
+		}
 	case "rollback":
 		{
 			action = appActionRollback
@@ -370,38 +454,39 @@ func main() {
 
 	// Ensures that JSONFilename is provided by user
 	// and that mode must either be rollback or upgrade
-	if len(os.Args) <= 1 || jsonFilename == "" || !isValidAction(action) {
+	if len(os.Args) <= 1 || jsonFilename == "" || !action.isValidAction() {
 		flag.PrintDefaults()
 		return
 	}
 
-	var err error
-	if d.PrintDebug && debugLogFilename != "" {
-		err = d.EnableDebugLog(debugLogFilename)
+	if debug && debugLogFilename != "" {
+		DebugLog.EnableDebug()
+		if err := DebugLog.EnableDebugLog(debugLogFilename); err == nil {
+			defer DebugLog.CloseDebugLog()
+		} else {
+			DebugLog.Println("Error: %v", err)
+		}
 	}
-	if err == nil {
-		defer d.CloseDebugLog()
-	} else {
-		d.Println("Error: %v", err)
-	}
-	d.Debugln(softwareupgrade.CEximchainUpgradeTitle)
-	d.EnablePrintConsole()
+
+	DebugLog.Debugln(softwareupgrade.CEximchainUpgradeTitle)
+	DebugLog.EnablePrintConsole()
 
 	// Read JSON configuration file
 	if expandedJSONFilename, err := softwareupgrade.Expand(jsonFilename); err == nil {
 		jsonFilename = expandedJSONFilename
 	} else {
-		d.Println("Unable to interpret/parse %s due to %v", jsonFilename, err)
+		DebugLog.Println("Unable to interpret/parse %s due to %v", jsonFilename, err)
 		return
 	}
-	jsonContents, err = softwareupgrade.ReadDataFromFile(jsonFilename)
 
-	EnableSignalHandler()
-	// For processing of the JSON configuration
-	if err == nil {
-		upgradeOrRollback()
+	if jsonContents, err := softwareupgrade.ReadDataFromFile(jsonFilename); err == nil {
+		EnableSignalHandler()
+
+		// Start processing the upgrade/rollback, etc...
+		upgradeOrRollback(jsonContents)
+		TerminateSignalHandler()
 	} else {
-		d.Println(`Error reading from JSON configuration file: "%s", error: %v`, jsonFilename, err)
+		DebugLog.Println(`Error reading from JSON configuration file: "%s", error: %v`, jsonFilename, err)
 	}
 
 }

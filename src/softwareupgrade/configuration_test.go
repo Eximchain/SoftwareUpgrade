@@ -1,7 +1,6 @@
 package softwareupgrade
 
 import (
-	"log"
 	"testing"
 )
 
@@ -17,12 +16,20 @@ func init() {
 	failedUpgradeInfo.AddNodeSoftware("node1", "soft4")
 	failedUpgradeInfo.RemoveNodeSoftware("node1", "soft3")
 	if count := failedUpgradeInfo.GetNodeSoftwareCount("node1"); count != 3 {
-		log.Printf("Node count should be 3, but is: %d\n", count)
+		DebugLog.Printf("Node count should be 3, but is: %d\n", count)
 	}
 }
 
 func TestFailedUpgradeInfo_RemoveNodeSoftware(t *testing.T) {
 	failedUpgradeInfo = NewFailedUpgradeInfo()
+	if count := failedUpgradeInfo.GetNodeSoftwareCount("node1"); count != 0 {
+		t.Fatalf("Node count should be 0, but is: %d", count)
+	}
+	failedUpgradeInfo.AddNodeSoftware("node1", "s1")
+	if count := failedUpgradeInfo.GetNodeSoftwareCount("node1"); count != 1 {
+		t.Fatalf("Node count should be 1, but is: %d", count)
+	}
+	failedUpgradeInfo.RemoveNodeSoftware("node1", "s1")
 	if count := failedUpgradeInfo.GetNodeSoftwareCount("node1"); count != 0 {
 		t.Fatalf("Node count should be 0, but is: %d", count)
 	}

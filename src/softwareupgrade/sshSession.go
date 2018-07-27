@@ -55,6 +55,7 @@ func EnsureSSHConfigCache() {
 func ClearSSHConfigCache() {
 	if sshConfigCache != nil {
 		for k, v := range sshConfigCache {
+			v.Close()
 			v.Clear()
 			delete(sshConfigCache, k)
 		}
@@ -112,6 +113,7 @@ func (sshConfig *SSHConfig) Close() {
 func (sshConfig *SSHConfig) CloseClient() {
 	if sshConfig.client != nil {
 		sshConfig.client.Close()
+		sshConfig.client.Conn.Close()
 		sshConfig.client = nil
 	}
 }
@@ -141,17 +143,17 @@ func (sshConfig *SSHConfig) Connect() error {
 
 		// this sends keepalive packets every 5 seconds(configurable) so that the client doesn't timeout
 		// there's no useful response from these, so abort if there's an error
-		go func() {
+		go func(client *ssh.Client) {
 			t := time.NewTicker(sshConfig.keepAliveDuration)
 			defer t.Stop()
 			for {
 				<-t.C
-				_, _, err := sshConfig.client.Conn.SendRequest("keepalive@golang.org", true, nil)
+				_, _, err := client.Conn.SendRequest("keepalive@golang.org", true, nil)
 				if err != nil {
 					return
 				}
 			}
-		}()
+		}(sshConfig.client)
 	}
 
 	sshConfig.session, err = sshConfig.client.NewSession()

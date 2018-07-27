@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 )
 
@@ -34,7 +33,7 @@ type (
 		RollbackInfo  *FailedUpgradeInfo `json:"RollbackInfo"`
 	}
 
-	// UpgradeStruct contains the information necessary to upgrade a particular software
+	// UpgradeStruct contains the information necessary to add/upgrade a particular software
 	// on a node
 	UpgradeStruct struct {
 		SourceFilePath string `json:"Local_Filename"`  // local file path
@@ -131,6 +130,23 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// RunDeleteRollback deletes the rollback for a particular node
+func (nodeInfo *NodeInfoContainer) RunDeleteRollback(sshConfig *SSHConfig, rollbackSuffix string) (err error) {
+	if len(nodeInfo.Copy) > 0 {
+		for i := 0; i < len(nodeInfo.Copy)+1; i++ {
+			index := IntToStr(i)
+			upgradeStruct := nodeInfo.Copy[index]
+			if (UpgradeStruct{}) == upgradeStruct { // skip empty struct, or empty source
+				continue
+			}
+			rollbackName := upgradeStruct.DestFilePath + rollbackSuffix
+			cmd := fmt.Sprintf("sudo rm %s", rollbackName)
+			_, err = sshConfig.Run(cmd)
+		}
+	}
+	return
+}
+
 // RunRollback runs the rollback for a particular node
 func (nodeInfo *NodeInfoContainer) RunRollback(sshConfig *SSHConfig, rollbackSuffix string) (err error) {
 	if len(nodeInfo.Copy) > 0 {
@@ -142,7 +158,19 @@ func (nodeInfo *NodeInfoContainer) RunRollback(sshConfig *SSHConfig, rollbackSuf
 			}
 			if upgradeStruct.UserGroup == "" {
 				if upgradeStruct.UserGroup, err = sshConfig.getFileOwnership(upgradeStruct.DestFilePath); err != nil {
-					log.Printf("Unable to get owner for %s, error: %v\n", upgradeStruct.DestFilePath, err)
+					DebugLog.Printf("Unable to get owner for %s, error: %v\n", upgradeStruct.DestFilePath, err)
+				}
+			}
+			PreUpgradeCmds := nodeInfo.PreUpgrade
+			if len(PreUpgradeCmds) > 0 {
+				DebugLog.Println("Running Pre-Rollback commands...")
+				for i := range PreUpgradeCmds {
+					cmd := PreUpgradeCmds[i]
+					msg := fmt.Sprintf(`Pre-Rollback command %d: "%s"`, i, cmd)
+					DebugLog.Println(msg)
+					cmdOutput, err := sshConfig.Run(cmd)
+					msg = fmt.Sprintf(`%d output: "%s", error: "%v"`, i, cmdOutput, err)
+					DebugLog.Println(msg)
 				}
 			}
 			rollbackName := upgradeStruct.DestFilePath + rollbackSuffix
@@ -153,8 +181,20 @@ func (nodeInfo *NodeInfoContainer) RunRollback(sshConfig *SSHConfig, rollbackSuf
 					// if fileOwner has been retrieved, change the file ownership to the previous
 					err = sshConfig.changeFileOwnership(upgradeStruct.DestFilePath, upgradeStruct.UserGroup)
 					if err != nil {
-						log.Printf("Unable to set owner for %s, error: %v\n", upgradeStruct.DestFilePath, err)
+						DebugLog.Printf("Unable to set owner for %s, error: %v\n", upgradeStruct.DestFilePath, err)
 					}
+				}
+			}
+			PostUpgradeCmds := nodeInfo.PostUpgrade
+			if len(PostUpgradeCmds) > 0 {
+				DebugLog.Println("Running Post-Rollback commands...")
+				for i := range PostUpgradeCmds {
+					cmd := PostUpgradeCmds[i]
+					msg := fmt.Sprintf(`Post-Rollback command %d: "%s"`, i, cmd)
+					DebugLog.Println(msg)
+					cmdOutput, err := sshConfig.Run(cmd)
+					msg = fmt.Sprintf(`%d output: "%s", error: "%v"`, i, cmdOutput, err)
+					DebugLog.Println(msg)
 				}
 			}
 		}
@@ -194,7 +234,7 @@ func (nodeInfo *NodeInfoContainer) RunUpgrade(sshConfig *SSHConfig) (err error) 
 			}
 			if upgradeStruct.UserGroup == "" {
 				if upgradeStruct.UserGroup, err = sshConfig.getFileOwnership(upgradeStruct.DestFilePath); err != nil {
-					log.Printf("Unable to get owner for %s, error: %v\n", upgradeStruct.DestFilePath, err)
+					DebugLog.Printf("Unable to get owner for %s, error: %v\n", upgradeStruct.DestFilePath, err)
 				}
 			}
 			if upgradeStruct.BackupStrategy != "" {
@@ -215,7 +255,18 @@ func (nodeInfo *NodeInfoContainer) RunUpgrade(sshConfig *SSHConfig) (err error) 
 					msg = fmt.Sprintf("%sFailed to implement backup strategy for node: %v software: %s\n", msg, err, backupResult)
 				}
 			}
-
+			PreUpgradeCmds := nodeInfo.PreUpgrade
+			if len(PreUpgradeCmds) > 0 {
+				DebugLog.Println("Running Pre-Upgrade commands...")
+				for i := range PreUpgradeCmds {
+					cmd := PreUpgradeCmds[i]
+					msg := fmt.Sprintf(`Pre-Upgrade command %d: "%s"`, i, cmd)
+					DebugLog.Println(msg)
+					cmdOutput, err := sshConfig.Run(cmd)
+					msg = fmt.Sprintf(`%d output: "%s", error: "%v"`, i, cmdOutput, err)
+					DebugLog.Println(msg)
+				}
+			}
 			err = sshConfig.CopyLocalFileToRemoteFile(
 				upgradeStruct.SourceFilePath,
 				upgradeStruct.DestFilePath, upgradeStruct.Permissions)
@@ -239,10 +290,22 @@ func (nodeInfo *NodeInfoContainer) RunUpgrade(sshConfig *SSHConfig) (err error) 
 						err = sshConfig.changeFileOwnership(upgradeStruct.DestFilePath, upgradeStruct.UserGroup)
 					}
 					if err == nil {
-						log.Println("Upgrade successful!")
+						DebugLog.Println("Upgrade successful!")
 					}
 				} else {
 					msg = fmt.Sprintf("%sUpgrade failed for %s\n", msg, upgradeStruct.DestFilePath)
+				}
+			}
+			PostUpgradeCmds := nodeInfo.PostUpgrade
+			if len(PostUpgradeCmds) > 0 {
+				DebugLog.Println("Running Post-Upgrade commands...")
+				for i := range PostUpgradeCmds {
+					cmd := PostUpgradeCmds[i]
+					msg := fmt.Sprintf(`Post-Upgrade command %d: "%s"`, i, cmd)
+					DebugLog.Println(msg)
+					cmdOutput, err := sshConfig.Run(cmd)
+					msg = fmt.Sprintf(`%d output: "%s", error: "%v"`, i, cmdOutput, err)
+					DebugLog.Println(msg)
 				}
 			}
 		}
@@ -255,9 +318,9 @@ func (nodeInfo *NodeInfoContainer) RunUpgrade(sshConfig *SSHConfig) (err error) 
 			cmd := nodeInfo.Exec[index]
 			cmdResult, err := sshConfig.Run(cmd)
 			if err == nil {
-				log.Printf(`Exec: "%s", Result: "%s", \n`, cmd, cmdResult)
+				DebugLog.Printf(`Exec: "%s", Result: "%s", \n`, cmd, cmdResult)
 			} else {
-				log.Printf(`Exec: "%s", Result: "%v"`, cmd, err)
+				DebugLog.Printf(`Exec: "%s", Result: "%v"`, cmd, err)
 			}
 		}
 	}
@@ -281,6 +344,14 @@ func (config *UpgradeConfig) GetGroupNodes(groupName string) (result []string) {
 // GetGroupSoftware gets the software belonging to the specified group
 func (config *UpgradeConfig) GetGroupSoftware(groupName string) (result []string) {
 	result = config.Common.SoftwareGroup[groupName]
+	return
+}
+
+// GetNodeCount retrieves the number of nodes that are defined under all software groups
+func (config *UpgradeConfig) GetNodeCount() (result int) {
+	for _, softwareGroupNode := range config.SoftwareGroupNodes {
+		result += len(softwareGroupNode)
+	}
 	return
 }
 
@@ -398,8 +469,9 @@ func (failedUpgradeInfo *FailedUpgradeInfo) GetNodeSoftwareCount(node string) in
 	return len(failedUpgradeInfo.FailedNodeSoftware[node])
 }
 
+// GetCount returns the total number of values currently available
 func (failedUpgradeInfo *FailedUpgradeInfo) GetCount() (totalCount int) {
-	for k, _ := range failedUpgradeInfo.FailedNodeSoftware {
+	for k := range failedUpgradeInfo.FailedNodeSoftware {
 		totalCount += len(failedUpgradeInfo.FailedNodeSoftware[k])
 	}
 	return
@@ -444,12 +516,12 @@ func (failedUpgradeInfo *FailedUpgradeInfo) RemoveNodeSoftware(node, software st
 	softwares := failedUpgradeInfo.FailedNodeSoftware[node]
 	for i, v := range softwares {
 		if v == software {
-			softwares = append(softwares[:i], softwares[i+1:]...)
-			// removes the key when there's no software anymore
-			if len(softwares) == 0 {
+			// removes the key since there's only 1 match.
+			if len(softwares) == 1 {
 				delete(failedUpgradeInfo.FailedNodeSoftware, node)
 				return
 			}
+			softwares = append(softwares[:i], softwares[i+1:]...)
 			// breaks once a match is found. assumes no duplicates
 			break
 		}
@@ -462,8 +534,10 @@ func (failedUpgradeInfo *FailedUpgradeInfo) FindNode(node string) []string {
 	return failedUpgradeInfo.FailedNodeSoftware[node]
 }
 
+// NewRollbackSession creates a new RollbackSession
 func NewRollbackSession(aSessionSuffix string) (result *RollbackSession) {
-	result = &RollbackSession{SessionSuffix: aSessionSuffix}
-	result.RollbackInfo = NewFailedUpgradeInfo()
+	result = &RollbackSession{
+		aSessionSuffix,
+		NewFailedUpgradeInfo()}
 	return
 }

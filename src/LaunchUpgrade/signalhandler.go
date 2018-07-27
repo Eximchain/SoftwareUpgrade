@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -28,10 +27,20 @@ func EnableSignalHandler() {
 		syscall.SIGTERM, syscall.SIGQUIT)
 	go func() {
 		for {
-			<-signalCh
-			fmt.Println("Please wait while finishing up...")
+			s := <-signalCh
+			if s != syscall.SIGQUIT {
+				DebugLog.Println("Please wait while finishing up...")
+			}
 			terminated = true
 			return
 		}
 	}()
+}
+
+// TerminateSignalHandler terminates the signal handler
+func TerminateSignalHandler() {
+	if signalCh != nil {
+		signalCh <- syscall.SIGQUIT
+		close(signalCh)
+	}
 }
