@@ -359,7 +359,7 @@ func upgradeOrRollback(jsonContents []byte) {
 							{
 								err := nodeInfo.RunDeleteRollback(sshConfig, rollbackSuffix)
 								if err != nil {
-									DebugLog.Println("Failed to delete rollback for node: %s, software: %s", node, software)
+									DebugLog.Println("Failed to delete rollback for node: %s, software: %s due to %v", node, software, err)
 								} else {
 									DebugLog.Println("Deleted rollback for node: %s, software: %s", node, software)
 								}
