@@ -24,3 +24,5 @@ Upgrade
 src/softwareupgrade/vendor/golang.org/
 src/softwareupgrade/vendor/github.com/
 *.swp
+CreateConfig
+createconfig

@@ -104,12 +104,18 @@ func upgradeOrRollback(jsonContents []byte) {
 			hostDirsCache := make(map[string]DirExistStruct)
 			dupErr := make(map[string]bool)
 			for _, softwareGroup := range SoftwareGroupNames {
+				if Terminated() {
+					break
+				}
 				// Look up the software for each softwareGroup
 				groupSoftware := upgradeconfig.GetGroupSoftware(softwareGroup)
 
 				// Get the nodes for this group
 				groupNodes := upgradeconfig.GetGroupNodes(softwareGroup)
 				for _, node := range groupNodes {
+					if Terminated() {
+						break
+					}
 					if len(groupSoftware) == 0 {
 						continue
 					}
@@ -147,7 +153,9 @@ func upgradeOrRollback(jsonContents []byte) {
 				DebugLog.Printf("%v", msg)
 				return
 			}
-			DebugLog.Println("All remote directories verified.")
+			if !Terminated() {
+				DebugLog.Println("All remote directories verified.")
+			}
 		}
 	}
 
