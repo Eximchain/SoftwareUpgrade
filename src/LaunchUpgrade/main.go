@@ -84,7 +84,7 @@ func upgradeOrRollback(jsonContents []byte) {
 		}
 	}
 
-	if !disableTargetDirVerification {
+	if !disableTargetDirVerification || action == appActionAdd {
 		// Only perform directory verification if there is at least 1 node
 		if nodeCount := upgradeconfig.GetNodeCount(); nodeCount > 0 {
 			DebugLog.Println("Verifying target directories, please wait.")
@@ -129,18 +129,36 @@ func upgradeOrRollback(jsonContents []byte) {
 							if hostDirStruct == (DirExistStruct{}) {
 								var err error
 								hostDirStruct.dir = remoteDir
-								if hostDirStruct.exist, err = sshConfig.DirectoryExists(remoteDir); err == nil {
-									hostDirsCache[hostDir] = hostDirStruct
-									if !hostDirStruct.exist {
-										msg = fmt.Sprintf("%sRemote directory: %s doesn't exist on node: %s\n",
-											msg, remoteDir, node)
+								switch action {
+								case appActionAdd:
+									{
+
+										if hostDirStruct.exist, err = sshConfig.DirectoryExists(remoteDir); err == nil {
+											if !hostDirStruct.exist {
+												err = sshConfig.CreateDirectory(remoteDir)
+												if err == nil {
+													hostDirStruct.exist = true
+												}
+											}
+											hostDirsCache[hostDir] = hostDirStruct
+										}
 									}
-								} else {
-									errmsg := fmt.Sprintf("Node: %s error: %v", node, err)
-									errExist := dupErr[errmsg]
-									if !errExist {
-										msg = fmt.Sprintf("%s%s\n", msg, errmsg)
-										dupErr[errmsg] = true
+								case appActionUpgrade:
+									{
+										if hostDirStruct.exist, err = sshConfig.DirectoryExists(remoteDir); err == nil {
+											hostDirsCache[hostDir] = hostDirStruct
+											if !hostDirStruct.exist {
+												msg = fmt.Sprintf("%sRemote directory: %s doesn't exist on node: %s\n",
+													msg, remoteDir, node)
+											}
+										} else {
+											errmsg := fmt.Sprintf("Node: %s error: %v", node, err)
+											errExist := dupErr[errmsg]
+											if !errExist {
+												msg = fmt.Sprintf("%s%s\n", msg, errmsg)
+												dupErr[errmsg] = true
+											}
+										}
 									}
 								}
 							}
@@ -191,6 +209,7 @@ func upgradeOrRollback(jsonContents []byte) {
 	switch action {
 	case appActionAdd:
 		{
+			rollbackSession.Mode = mode
 		}
 	case appActionDeleteRollback:
 		{
@@ -349,8 +368,8 @@ func upgradeOrRollback(jsonContents []byte) {
 					DebugLog.Println(actionMsg)
 					sshConfig := softwareupgrade.NewSSHConfig(nodeInfo.SSHUserName, nodeInfo.SSHCert, node)
 
-					// Only stop the software if it's not Delete Rollback
-					if action != appActionDeleteRollback {
+					// Only stop the software if it's not Delete Rollback and not Add
+					if action != appActionDeleteRollback && action != appActionAdd {
 						// Stop the running software, upgrade it, then start the software
 						StopCmd := nodeInfo.StopCmd
 						StopResult, err := sshConfig.Run(StopCmd)
@@ -363,6 +382,15 @@ func upgradeOrRollback(jsonContents []byte) {
 
 					if !dryRun {
 						switch action {
+						case appActionAdd:
+							{
+								err := nodeInfo.RunAdd(sshConfig)
+								if err == nil {
+									DebugLog.Println("Added software: %s to node: %s successfully", software, node)
+								} else {
+									DebugLog.Println("Failed to add software %s to node: %s", software, node)
+								}
+							}
 						case appActionDeleteRollback:
 							{
 								err := nodeInfo.RunDeleteRollback(sshConfig, rollbackSuffix)
@@ -398,7 +426,7 @@ func upgradeOrRollback(jsonContents []byte) {
 					}
 
 					// Only start the software if it's not a delete rollback
-					if action != appActionDeleteRollback {
+					if action != appActionDeleteRollback && action != appActionAdd {
 						StartCmd := nodeInfo.StartCmd
 						StartResult, err := sshConfig.Run(StartCmd)
 						if err != nil {

@@ -113,7 +113,6 @@ func (sshConfig *SSHConfig) Close() {
 func (sshConfig *SSHConfig) CloseClient() {
 	if sshConfig.client != nil {
 		sshConfig.client.Close()
-		sshConfig.client.Conn.Close()
 		sshConfig.client = nil
 	}
 }
@@ -243,6 +242,13 @@ func (sshConfig *SSHConfig) CopyLocalFileToRemoteFile(localFilename, remoteFilen
 	defer file.Close()
 	err = sshConfig.CopyFromFile(*file, remoteFilename, permissions)
 	return err
+}
+
+// CreateDirectory creates the specified directory on the host specified in the given SSHConfig
+func (sshConfig *SSHConfig) CreateDirectory(path string) (err error) {
+	cmd := fmt.Sprintf("sudo mkdir -p %s", path)
+	_, err = sshConfig.Run(cmd)
+	return
 }
 
 // Destroy closes the connection to the client and clears the privatKey, user and host stored in the configuration.

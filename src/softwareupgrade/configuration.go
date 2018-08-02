@@ -31,6 +31,7 @@ type (
 	RollbackSession struct {
 		SessionSuffix string             `json:"SessionSuffix"`
 		RollbackInfo  *FailedUpgradeInfo `json:"RollbackInfo"`
+		Mode          string             `json:"Mode"`
 	}
 
 	// UpgradeStruct contains the information necessary to add/upgrade a particular software
@@ -130,8 +131,9 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 	}
 }
 
-// RunDeleteRollback deletes the rollback for a particular node
-func (nodeInfo *NodeInfoContainer) RunDeleteRollback(sshConfig *SSHConfig, rollbackSuffix string) (err error) {
+// RunAdd adds the given files specified in the nodeInfo to the target node specified in the sshConfig
+func (nodeInfo *NodeInfoContainer) RunAdd(sshConfig *SSHConfig) (err error) {
+	var msg string
 	if len(nodeInfo.Copy) > 0 {
 		for i := 0; i < len(nodeInfo.Copy)+1; i++ {
 			index := IntToStr(i)
@@ -139,10 +141,64 @@ func (nodeInfo *NodeInfoContainer) RunDeleteRollback(sshConfig *SSHConfig, rollb
 			if (UpgradeStruct{}) == upgradeStruct { // skip empty struct, or empty source
 				continue
 			}
+			err = sshConfig.CopyLocalFileToRemoteFile(
+				upgradeStruct.SourceFilePath,
+				upgradeStruct.DestFilePath, upgradeStruct.Permissions)
+			if err != nil {
+				if msg == "" {
+					msg = fmt.Sprintf("%v", err)
+				} else {
+					msg = fmt.Sprintf("%s\n%v", msg, err)
+				}
+			} else {
+				if upgradeStruct.UserGroup != "" {
+					// if fileOwner has been retrieved, change the file ownership to the previous
+					err = sshConfig.changeFileOwnership(upgradeStruct.DestFilePath, upgradeStruct.UserGroup)
+					if err != nil {
+						msg = fmt.Sprintf("%s\n%v", msg, err)
+					}
+				}
+			}
+		}
+	}
+	if msg != "" {
+		err = errors.New(msg)
+	}
+	return
+}
+
+// RunDeleteAdd deletes the specified files in the nodeInfo on the target nodes specified in the sshConfig
+func (nodeInfo *NodeInfoContainer) RunDeleteAdd(sshConfig *SSHConfig) (err error) {
+	return nodeInfo.RunDeleteRollback(sshConfig, "")
+}
+
+// RunDeleteRollback deletes the rollback for a particular node
+func (nodeInfo *NodeInfoContainer) RunDeleteRollback(sshConfig *SSHConfig, rollbackSuffix string) (err error) {
+	var msg string
+	if len(nodeInfo.Copy) > 0 {
+		for i := 0; i < len(nodeInfo.Copy)+1; i++ {
+			index := IntToStr(i)
+			upgradeStruct := nodeInfo.Copy[index]
+			if (UpgradeStruct{}) == upgradeStruct { // skip empty struct, or empty source
+				continue
+			}
+			if cmd := nodeInfo.StopCmd; cmd != "" {
+				_, err := sshConfig.Run(cmd)
+				if err != nil {
+					if msg == "" {
+						msg = fmt.Sprintf("%v", err)
+					} else {
+						msg = fmt.Sprintf("%s\n%v", msg, err)
+					}
+				}
+			}
 			rollbackName := upgradeStruct.DestFilePath + rollbackSuffix
 			cmd := fmt.Sprintf("sudo rm %s", rollbackName)
 			_, err = sshConfig.Run(cmd)
 		}
+	}
+	if msg != "" {
+		err = errors.New(msg)
 	}
 	return
 }
@@ -538,6 +594,6 @@ func (failedUpgradeInfo *FailedUpgradeInfo) FindNode(node string) []string {
 func NewRollbackSession(aSessionSuffix string) (result *RollbackSession) {
 	result = &RollbackSession{
 		aSessionSuffix,
-		NewFailedUpgradeInfo()}
+		NewFailedUpgradeInfo(), ""}
 	return
 }
