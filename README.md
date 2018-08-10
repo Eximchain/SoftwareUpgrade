@@ -297,7 +297,7 @@ An example of the JSON configuration file format follows.
 ```
 
 The "Quorum-Makers" in "software_group" specifies that it consists of the "blockmetrics", "consul", "constellation" and "quorum" software.
-The "Quorum-Makers" in "groupnodes" specifies that the hostnames are: "ec2-54-164-95-40.compute-1.amazonaws.com", "name3", "name4", and that the software in the "Quorum-Makers" in "software_group" will be deployed to these hostnames. _The software group name used in "software_group" and "groupnodes" must be the same, so that the application knows that the software specified in the the "software_group" is to be deployed to the nodes specified in the "groupnodes" under the same name._
+The "Quorum-Makers" in "groupnodes" specifies that the hostnames are: "ec2-54-164-95-40.compute-1.amazonaws.com", "name3", "name4", and that the software in the "Quorum-Makers" in "software_group" will be deployed to these hostnames. _The software group name used in "software_group" and "groupnodes" must be the same, so that the application knows that the software specified in the "software_group" is to be deployed to the nodes specified in the "groupnodes" under the same name._
 
 Troubleshooting
 ==
