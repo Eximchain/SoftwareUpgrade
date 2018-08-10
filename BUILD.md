@@ -5,7 +5,9 @@ How to build
 2. Open a terminal and go to the directory where the repository is located.
 3. Ensure build.sh is executable. Run:
     1.  chmod a+x build.sh
-4. Update the GOPATH in build.sh, and run build.sh
-5. Update the LaunchUpgrade.json configuration file.
-6. Run the generated executable: Upgrade.
-
+4. Update the GOPATH environment variable in vars.sh
+5. Run the build.sh script, which generates the CreateConfig and Upgrade executables.
+6. Run CreateConfig like so:
+    1. CreateConfig template-filename terraform-output-json-filename outputfilename, eg, CreateConfig ~/template.json ~/terraformoutput.json ~/Upgrade.json
+7. Run Upgrade with any necessary parameters, like so:
+    1. Upgrade -debug-log ~/Upgrade-debug.log -json ~/Upgrade.json

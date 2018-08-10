@@ -68,7 +68,9 @@ Upgrade command line parameters
 * -help - brings up information about the parameters.
 
 Example
+```
     -json=~/Documents/GitHub/SoftwareUpgrade/LaunchUpgrade.json -debug=true -debug-log=~/EximchainUpgrade.log
+```
 
 This launches the upgrader telling it to read the upgrade information from the file LaunchUpgrade.json, and to enable debug log output to the EximchainUpgrade.log file in the user home directory.
 
