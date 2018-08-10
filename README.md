@@ -94,33 +94,33 @@ The Local_Filename string specifies the filename of the file to copy from. The R
 After all numbered objects are copied, the start command is then executed.
 
 Table of child software object properties.
-| Property  	| Type  	| Description  	|
-|---	|---	|---	|
+| Property | Type | Description |
+|---|---|---|
 | start  	| string  	| The command to execute, in order to start the software after being added/upgraded.  	|
 | stop  	| string  	| The command to execute, in order to stop the software before being upgraded. May be empty if the software is to be added. 	|
 | Copy  	| object  	| The file(s) to copy, in order to add/upgrade the software to/on the target node.  	|
 
 Table of Copy object properties.
-| Property  	| Type  	| Description  	|
-|---	|---	|---	|
+| Property | Type | Description |
+|---|---|---|
 | Local_Filename  	| string  	| Full path to the file to copy.  	|
 | Remote_Filename  	| string  	| Full path on the target node for the file to be copied to.  	|
 | Permissions  	| string  	| A 4-digit permissions string.  	|
 | preupgrade  	| array of strings  	| Command(s) to execute before the upgrade starts. If empty, no commands are executed. 	|
-| postupgrade  	| arroy of strings  	| Command(s) to execute after the upgrade is completed. If empty, no commands are executed. 	|
+| postupgrade  	| array of strings  	| Command(s) to execute after the upgrade is completed. If empty, no commands are executed. 	|
 
 Table of common object properties.
-| Property  	| Type  	| Description  	|
-|---	|---	|---	|
+| Property | Type | Description |
+|---|---|---|
 | ssh_cert  	| string  	| Filename of the SSH certificate used to SSH to target nodes.  	|
 | ssh_username  	| string  	| Username used to SSH to target nodes.  	|
 | group_pause_after_upgrade  	| string  	| Specifies the amount of time to delay after upgrading a software group. 1h5m3s would mean 1 hour 5 minute and 3 seconds. The amount of time to delay is specified using this nomenclature. 	|
 | software_group  	| array of strings  	| Specifies the list of software that comprised this group. The software names used must be the same as those listed under the top level software object.  	|
 
 Table of groupnode properties.
-| Property  	| Type  	| Description  	|
-|---	|---	|---	|
-| Same name as used under the top-level software object.  	| array of string 	| Specifies the hostname of the target nodes.	| 
+| Property | Type | Description |
+|---|---|---|
+| Same name as used under the top-level software object. | array of strings | Specifies the hostname of the target nodes.| 
 
 An example of the JSON configuration file format follows.
 
