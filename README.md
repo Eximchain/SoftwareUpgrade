@@ -94,6 +94,7 @@ The Local_Filename string specifies the filename of the file to copy from. The R
 After all numbered objects are copied, the start command is then executed.
 
 Table of child software object properties.
+
 | Property | Type | Description |
 |---|---|---|
 | start  	| string  	| The command to execute, in order to start the software after being added/upgraded.  	|
@@ -101,6 +102,7 @@ Table of child software object properties.
 | Copy  	| object  	| The file(s) to copy, in order to add/upgrade the software to/on the target node.  	|
 
 Table of Copy object properties.
+
 | Property | Type | Description |
 |---|---|---|
 | Local_Filename  	| string  	| Full path to the file to copy.  	|
@@ -110,6 +112,7 @@ Table of Copy object properties.
 | postupgrade  	| array of strings  	| Command(s) to execute after the upgrade is completed. If empty, no commands are executed. 	|
 
 Table of common object properties.
+
 | Property | Type | Description |
 |---|---|---|
 | ssh_cert  	| string  	| Filename of the SSH certificate used to SSH to target nodes.  	|
@@ -118,6 +121,7 @@ Table of common object properties.
 | software_group  	| array of strings  	| Specifies the list of software that comprised this group. The software names used must be the same as those listed under the top level software object.  	|
 
 Table of groupnode properties.
+
 | Property | Type | Description |
 |---|---|---|
 | Same name as used under the top-level software object. | array of strings | Specifies the hostname of the target nodes.| 
