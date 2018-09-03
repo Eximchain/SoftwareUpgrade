@@ -26,3 +26,14 @@ src/softwareupgrade/vendor/github.com/
 *.swp
 CreateConfig
 createconfig
+demo-1.sh
+demo-2.sh
+demo-3.sh
+LaunchUpgrade-2.json
+LaunchUpgrade-3.json
+ShouldWork-20-08-2018.sh
+ShouldWork-26-07-2018.sh
+ShouldWork-27-07-2018.sh
+shouldwork.sh
+src/CreateConfig.code-workspace
+src/CreateGraph/node-1.tf

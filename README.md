@@ -2,9 +2,11 @@ Table of Contents
 =================
    * [Introduction](#introduction)
    * [CreateConfig](#createconfig)
+        * [Legacy command line parameters](#createconfig-legacy-command-line-parameters)
         * [Command line parameters](#createconfig-command-line-parameters)
+        * [Template format](#createconfig-template-format)
    * [Upgrade](#upgrade)
-        * [Command line parameters](#upgrade-command-line-parameters)
+        * [command line parameters](#upgrade-command-line-parameters)
         * [JSON configuration file format](#json-configuration-file-format)
         * [Troubleshooting](#troubleshooting)
   
@@ -20,27 +22,94 @@ To build this, you'll need to refer instructions given in the BUILD.md.
 CreateConfig
 ==
 
-CreateConfig is a tool created to transform Terraform's json output into a configuration suitable to be used for the upgrade tool.
-To get Terraform's output in JSON format, run the following command:
+CreateConfig is a tool created to transform Terraform's json output into a configuration suitable to be used for the upgrade tool. To get Terraform's output in JSON format, run the following command:
 
 ```
 terraform output -json > terraformoutput.txt
 ```
 The above command causes Terraform to output its data is JSON format into the file terraformoutput.txt. You can use any filename.
 
-An example of the CreateConfig invocation is as below:
+Three examples of the CreateConfig invocation is as below:
 ```
 CreateConfig template.json terraformoutput.txt upgrade.json
+CreateConfig -mode=cli -input=template.json -output=terraformoutput.txt -terraform-json=upgrade.json -remove-quote=true -remove-delimiter=true
+CreateConfig -mode=tfe -input=template.json -output=terraformoutput.txt -workspace=workspace-name -organization=eximchain -auth=authtoken
 ```
 
 
-CreateConfig command line parameters
+
+CreateConfig legacy command line parameters
 ==
 
 * First parameter is the filename of the template.
 * Second parameter is the filename of the Terraform output in JSON format.
 * Third parameter is the filename to write the output to.
 
+CreateConfig command line parameters
+==
+* 	-template - Filename of template
+*	-terraform-json - Filename of Terraform output in JSON format (not required in TFE mode)
+*   -output - Filename to write output to
+*   -remove-quote - true|false, remove quotes from output
+*   -remove-delimiter - remove commas from output separating items
+*   -mode - cli|tfe, command line interface, or Terraform Enterprise API integration
+    *   in cli mode, these parameters are required: output, template, terraform-json
+    *   in tfe mode, these parameters are required: auth, organization, workspace
+*   -workspace - Name of workspace (only for tfe mode)
+*   -organization - Name of organization (only for tfe mode)
+*   -auth - Authorization token (only for tfe mode)
+
+CreateConfig template format
+==
+The template format is a left brace, and a percent, "{%", followed by the node name, followed by a right brace, "}".
+
+An example template file looks like this:
+```
+{%bootnode_ips} {%vault_server_ips}
+```
+
+And if the Terraform output in JSON format contains this:
+```
+{
+    "bootnode_ips": {
+        "sensitive": false,
+        "type": "map",
+        "value": {
+            "ap-northeast-1": [],
+            "ap-northeast-2": [],
+            "ap-south-1": [],
+            "ap-southeast-1": [],
+            "ap-southeast-2": [],
+            "ca-central-1": [],
+            "eu-central-1": [],
+            "eu-west-1": [],
+            "eu-west-2": [],
+            "sa-east-1": [],
+            "us-east-1": [
+                "18.207.120.214"
+            ],
+            "us-east-2": [
+                "18.222.37.52",
+                "18.188.115.226"
+            ],
+            "us-west-1": [],
+            "us-west-2": []
+        }
+    },
+    "vault_server_ips": {
+        "sensitive": false,
+        "type": "list",
+        "value": [
+            "54.175.210.140"
+        ]
+    }
+}
+```
+
+and given that -remove-delimiter=true, then the output would be the combined values of the nodes:
+```
+18.207.120.214 18.222.37.52 18.188.115.226 54.175.210.140
+```
 
 
 Upgrade
@@ -51,11 +120,11 @@ Upgrade is a tool created to upgrade and add software to the target Eximchain no
 Upgrade command line parameters
 ==
 
-* -debug Specifies debug mode. When this is specified, more debug information go into the debug log.
+* -debug Specifies debug mode - true|false, when this is specified, more debug information go into the debug log.
 * -debug-log logfilename - specifies the name of the debug log to write to.
-* -disable-file-verification - disables source file existence verification.
-* -disable-target-dir-verification - disables target directory existence verification.
-* -dry-run - Enables testing mode, doesn't perform actual action, but starts and stops the software running on remote nodes
+* -disable-file-verification - true|false, disables source file existence verification.
+* -disable-target-dir-verification - true|false, disables target directory existence verification.
+* -dry-run - true|false, enables testing mode, doesn't perform actual action, but starts and stops the software running on remote nodes
 * -failed-nodes - Specifies the filename to load/save nodes that failed to upgrade.
 * -json jsonfilename - specifies the name of the JSON configuration file to read from. This must always be present.
 * -mode - Specifies the operating mode - add, delete-rollback, resume-upgrade, rollback, upgrade (default: upgrade)
