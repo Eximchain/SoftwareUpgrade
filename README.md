@@ -2,7 +2,6 @@ Table of Contents
 =================
    * [Introduction](#introduction)
    * [CreateConfig](#createconfig)
-        * [Legacy command line parameters](#createconfig-legacy-command-line-parameters)
         * [Command line parameters](#createconfig-command-line-parameters)
         * [Template format](#createconfig-template-format)
    * [Upgrade](#upgrade)
@@ -36,14 +35,9 @@ CreateConfig -mode=cli -input=template.json -output=terraformoutput.txt -terrafo
 CreateConfig -mode=tfe -input=template.json -output=terraformoutput.txt -workspace=workspace-name -organization=eximchain -auth=authtoken
 ```
 
+In cli mode, CreateConfig reads from a file (which is the redirected output of terraform output -json) and combines it with the specified template file to produce the output file.
 
-
-CreateConfig legacy command line parameters
-==
-
-* First parameter is the filename of the template.
-* Second parameter is the filename of the Terraform output in JSON format.
-* Third parameter is the filename to write the output to.
+In tfe mode, CreateConfig uses the authorization token to connect to Terraform Enterprise and retrieve the given organization's workspace's latest run's output and combines it with the specified template file to produce the output file.
 
 CreateConfig command line parameters
 ==
@@ -115,7 +109,7 @@ and given that -remove-delimiter=true, then the output would be the combined val
 Upgrade
 ==
 
-Upgrade is a tool created to upgrade and add software to the target Eximchain nodes. It can be used
+Upgrade is a tool created to upgrade and add software to the target Eximchain nodes.
 
 Upgrade command line parameters
 ==

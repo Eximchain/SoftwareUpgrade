@@ -9,3 +9,4 @@ $GOPATH/bin/govendor sync
 cd $GOPATH
 go build -o CreateConfig createconfig
 go build -o Upgrade LaunchUpgrade
+go build -o CreateGraph CreateGraph

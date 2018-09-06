@@ -4,39 +4,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"softwareupgrade"
 	"strings"
 )
-
-// parses terraform output
-// Terraform output looks like this:
-/*
-given_name1 = {
-  region1 = [hostname1 hostname2]
-  region2 = [hostname3 hostname4]
-  region3 = []
-}
-given_name2 = {
-	region1 = []
-	region2 = [hostname1 hostname2 hostname3]
-}
-*/
-
-// Terraform output -json looks like this
-/*
-
-{
-    "vault_server_ips": {
-        "sensitive": false,
-        "type": "list",
-        "value": [
-            "107.23.75.56"
-        ]
-    }
-}
-
-*/
 
 type (
 	// TerraformNode represents the output for a terraform output -json
@@ -76,9 +48,8 @@ func ConvertTerraformJSONContent(inputTemplate string, JSONContent []byte, outpu
 	var TerraformOutput map[string]TerraformNode
 	err = json.Unmarshal(data, &TerraformOutput)
 	if err != nil {
-		fmt.Printf("Error parsing Terraform JSON: %v\n", err)
-		fmt.Println("Most probable cause of error is forgetting to add -json to terraform output")
-		return
+		log.Printf("Error parsing Terraform JSON: %v\n", err)
+		log.Fatalln("Most probable cause of error is forgetting to add -json to terraform output")
 	}
 	for k, v := range TerraformOutput {
 		var (
@@ -129,8 +100,8 @@ func ConvertTerraformJSONContent(inputTemplate string, JSONContent []byte, outpu
 	if err == nil {
 		fmt.Println("Terraform output conversion completed.")
 	} else {
-		fmt.Printf("Error saving %s due to error: %v\n", outputFilename, err)
-		fmt.Println("Aborting.")
+		log.Printf("Error saving %s due to error: %v\n", outputFilename, err)
+		log.Fatalln("Aborting.")
 	}
 
 }
@@ -140,8 +111,8 @@ func convertTerraformJSONFile(inputTemplate, jsonPath, outputFilename string) {
 	if err == nil {
 		ConvertTerraformJSONContent(inputTemplate, data, outputFilename)
 	} else {
-		fmt.Printf("Unable to read from %s due to error: %v\n", jsonPath, err)
-		fmt.Println("Aborting.")
+		log.Printf("Unable to read from %s due to error: %v\n", jsonPath, err)
+		log.Fatalln("Aborting.")
 	}
 }
 
@@ -151,22 +122,19 @@ func convertTerraformJSON(inputTemplate, jsonPath, outputFilename string) {
 	if err == nil {
 		result = string(data)
 	} else {
-		fmt.Printf("Unable to read from %s due to error: %v\n", inputTemplate, err)
-		fmt.Println("Aborting.")
-		return
+		log.Printf("Unable to read from %s due to error: %v\n", inputTemplate, err)
+		log.Fatalln("Aborting.")
 	}
 	data, err = softwareupgrade.ReadDataFromFile(jsonPath)
 	if err != nil {
-		fmt.Printf("Unable to read from %s due to error: %v\n", jsonPath, err)
-		fmt.Println("Aborting.")
-		return
+		log.Printf("Unable to read from %s due to error: %v\n", jsonPath, err)
+		log.Fatalln("Aborting.")
 	}
 	var TerraformOutput map[string]TerraformNode
 	err = json.Unmarshal(data, &TerraformOutput)
 	if err != nil {
-		fmt.Printf("Error parsing Terraform JSON: %v\n", err)
-		fmt.Println("Most probable cause of error is forgetting to add -json to terraform output")
-		return
+		log.Printf("Error parsing Terraform JSON: %v\n", err)
+		log.Fatalln("Most probable cause of error is forgetting to add -json to terraform output")
 	}
 	for k, v := range TerraformOutput {
 		var (
@@ -215,16 +183,17 @@ func convertTerraformJSON(inputTemplate, jsonPath, outputFilename string) {
 	data = []byte(result)
 	_, err = softwareupgrade.SaveDataToFile(outputFilename, data)
 	if err == nil {
-		fmt.Println("Terraform output conversion completed.")
+		log.Println("Terraform output conversion completed.")
 	} else {
-		fmt.Printf("Error saving %s due to error: %v\n", outputFilename, err)
-		fmt.Println("Aborting.")
+		log.Printf("Error saving %s due to error: %v\n", outputFilename, err)
+		log.Fatalln("Aborting.")
 	}
 
 }
 
 func main() {
 
+	log.SetOutput(os.Stdout) // redirect logger output. This is so that the log.Fatal* are redirected.
 	fmt.Println()
 	fmt.Println("Creates configuration file for Upgrading Quorum nodes")
 	fmt.Println()
@@ -250,80 +219,42 @@ func main() {
 	flag.StringVar(&organization, "organization", "", "name of organization")
 	flag.StringVar(&auth, "auth", "", "authorization token")
 
-	savedOsArgs := os.Args
 	flag.Parse()
 
-	if len(os.Args) < 4 && terraformMode == "cli" {
-		fmt.Println("--mode=cli")
-		fmt.Println("\tInput 1 - Filename of template")
-		fmt.Println("\tInput 2 - Terraform output in JSON format (only in cli mode)")
-		fmt.Println("\tInput 3 - Filename to write output to")
-		fmt.Println("--mode=tfe")
-		flag.Usage()
-		fmt.Println()
-		return
+	if templateFilename == "" {
+		log.Fatalln("No template filename specified.")
 	}
-
-	// legacy parsing
-	if len(os.Args) >= 5 {
-		// expect these flags to be in 3rd position or later...
-		for i := 4; i < len(os.Args); i++ {
-			removeQuotes = removeQuotes || strings.Contains(os.Args[i], "-remove-quote")             // support both -remove-quote and -remove-quotes
-			removeDelimiters = removeDelimiters || strings.Contains(os.Args[i], "-remove-delimiter") // support -remove-delimiter and -remove-delimiters
-		}
+	if outputFilename == "" {
+		log.Fatalln("No output filename specified.")
 	}
 
 	switch terraformMode {
 	case "cli":
 		{
-			if len(os.Args) < len(savedOsArgs) {
-				os.Args = savedOsArgs
-			}
 			fmt.Println("Remove Quotes: ", removeQuotes)
 			fmt.Println("Remove Delimiters: ", removeDelimiters)
 
-			var arg1, arg2, arg3 string
-			if templateFilename != "" {
-				arg1 = templateFilename
-			} else {
-				arg1 = os.Args[1]
-			}
-			if templateFilename, err = softwareupgrade.Expand(arg1); err != nil {
-				fmt.Printf(cExpandingFilenameErr, arg1, err)
-				fmt.Println()
-				return
+			if templateFilename, err = softwareupgrade.Expand(templateFilename); err != nil {
+				log.Fatalf(cExpandingFilenameErr, templateFilename, err)
 			}
 
-			if terraformJSONFilename != "" {
-				arg2 = terraformJSONFilename
-			} else {
-				arg2 = os.Args[2]
+			if terraformJSONFilename == "" {
+				log.Fatalln("No Terraform JSON filename specified.")
 			}
-			if terraformJSONFilename, err = softwareupgrade.Expand(arg2); err != nil {
-				fmt.Printf(cExpandingFilenameErr, arg2, err)
-				fmt.Println()
-				return
+			if terraformJSONFilename, err = softwareupgrade.Expand(terraformJSONFilename); err != nil {
+				log.Fatalf(cExpandingFilenameErr, terraformJSONFilename, err)
 			}
 
-			if outputFilename != "" {
-				arg3 = outputFilename
-			} else {
-				arg3 = os.Args[3]
-			}
-			if outputFilename, err = softwareupgrade.Expand(arg3); err != nil {
-				fmt.Printf(cExpandingFilenameErr, arg3, err)
-				fmt.Println()
-				return
+			if outputFilename, err = softwareupgrade.Expand(outputFilename); err != nil {
+				log.Fatalf(cExpandingFilenameErr, outputFilename, err)
 			}
 
 			if !softwareupgrade.FileExists(templateFilename) {
-				fmt.Printf(cFilenameDoesntExist, templateFilename)
-				return
+				log.Fatalf(cFilenameDoesntExist, templateFilename)
 			}
 
 			if !softwareupgrade.FileExists(terraformJSONFilename) {
-				fmt.Printf(cFilenameDoesntExist, terraformJSONFilename)
-				return
+				log.Fatalf(cFilenameDoesntExist, terraformJSONFilename)
 			}
 
 			convertTerraformJSONFile(templateFilename, terraformJSONFilename, outputFilename)
@@ -335,30 +266,28 @@ func main() {
 				return
 			}
 			tfe := NewTFE(organization, workspace, auth)
+			defer tfe.Destroy()
 			workspaceID, err := tfe.WorkspaceID()
 			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				return
+				log.Fatalf("Error: %v\n", err)
 			}
 			fmt.Printf("Workspace: %s, retrieved ID: %s\n", workspace, workspaceID)
 			fmt.Print("Calling Terraform Enterprise API: ")
 			workspaceOutput, err := tfe.GetWorkspaceOutput()
 			if err != nil {
-				fmt.Printf("error retrieving workspace information due to %v", err)
-				fmt.Println("Aborting.")
-				return
+				fmt.Printf("error retrieving workspace information due to %v\n", err)
+				log.Fatalln("Aborting.")
 			}
 			fmt.Println("data retrieved.")
 			nd := NewNodeData(workspaceOutput)
 			data := nd.ReadNode()
 			JSONBytes, err := json.Marshal(&data)
-			if err == nil {
-				ConvertTerraformJSONContent(templateFilename, JSONBytes, outputFilename)
-			} else {
-				fmt.Printf("Failure encountered during conversion: %v\n", err)
+			if err != nil {
+				log.Printf("Failure encountered during conversion: %v\n", err)
+				log.Fatalln("Aborting.")
 			}
-
+			ConvertTerraformJSONContent(templateFilename, JSONBytes, outputFilename)
 		}
 	}
-
+	fmt.Printf("Configuration file: %s created successfully.\n", outputFilename)
 }
