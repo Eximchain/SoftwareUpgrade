@@ -4,7 +4,9 @@ Table of Contents
    * [CreateConfig](#createconfig)
         * [Command line parameters](#createconfig-command-line-parameters)
         * [Template format](#createconfig-template-format)
-   * [Upgrade](#upgrade)
+    * [CreateGraph](#creategraph)
+        * [Command line parameters](#creategraph-command-line-parameters)
+    * [Upgrade](#upgrade)
         * [command line parameters](#upgrade-command-line-parameters)
         * [JSON configuration file format](#json-configuration-file-format)
         * [Troubleshooting](#troubleshooting)
@@ -105,6 +107,163 @@ and given that -remove-delimiter=true, then the output would be the combined val
 18.207.120.214 18.222.37.52 18.188.115.226 54.175.210.140
 ```
 
+CreateGraph
+==
+CreateGraph is a tool used to visualize Eximchain nodes by generating a DOT output file.
+It reads either a single input file, or a file containing a list of files, each of which contains the remote addresses that a node is connected to.
+It then generates the output file using the [DOT](https://emden.github.io/_pages/doc/info/lang.html) language. The generated file can then be opened by an application that implements the GraphViz implementation, or [viewed online](http://www.webgraphviz.com/) (by copying and pasting the contents of the output file).
+
+CreateGraph command line parameters
+==
+*   -concurrent - number of iterations to run concurrently (minimum and default of 1)
+* 	-in - Name of input file containing remote addresses.
+*   -iterations - number of iterations to run (default of 100)
+*	-list - Name of file containing list of input files containing remote addresses. (use either -in or -list but not both)
+*   -output - Filename to write output to
+*   -radius - Whether to calculate the radius or not (true|false)
+*   -ext - The file extension of the input files
+
+Here's an example on how to call it:
+```
+./CreateGraph -concurrent=100 -extension=.json.raw -list=~/nodelist.txt -out=~/EximchainNodes.dot
+```
+
+This example assumes that nodelist.txt is a list of files.
+
+Example nodelist.txt:
+```
+ec2-13-232-223-9.ap-south-1.compute.amazonaws.com,13.232.223.9,10.0.56.87
+ec2-13-127-26-148.ap-south-1.compute.amazonaws.com,13.127.26.148,10.0.57.98
+ec2-13-232-248-251.ap-south-1.compute.amazonaws.com,13.232.248.251,10.0.56.85
+ec2-52-66-33-35.ap-south-1.compute.amazonaws.com,52.66.33.35,10.0.57.17
+ec2-13-233-1-173.ap-south-1.compute.amazonaws.com,13.233.1.173,10.0.56.188
+ec2-18-209-9-107.compute-1.amazonaws.com,18.209.9.107,10.0.0.84
+```
+
+Example ec2-13-232-223-9.ap-south-1.compute.amazonaws.com.json.raw
+```
+Welcome to the Geth JavaScript console!
+
+instance: Geth/v1.5.0-unstable-6729e9a5/linux/go1.10.3
+coinbase: 0x1f9b5c63f7395e32261bd8601a69c70a8c5e8303
+at block: 150 (Wed, 05 Sep 2018 07:20:06 UTC)
+ datadir: /home/ubuntu/.ethereum
+ modules: admin:1.0 debug:1.0 eth:1.0 net:1.0 personal:1.0 quorum:1.0 rpc:1.0 txpool:1.0 web3:1.0
+
+> 
+[{
+    caps: ["eth/62", "eth/63"],
+    id: "01d5a25c829939e931b9e56bfc66972fbfed5f18f593cac00745986c9dddcf878c2c9fac81bc0b55c4c0fc8af14cb0d5910821697b6546f1b7d81d2642559141",
+    name: "Geth/v1.5.0-unstable-6729e9a5/linux/go1.10.3",
+    network: {
+      localAddress: "10.0.9.238:33980",
+      remoteAddress: "54.197.13.5:21000"
+    },
+    protocols: {
+      eth: {
+        difficulty: 20247432,
+        head: "0x8ef211d535cc692b085eceed68a834f4f45316e4f0c957adac80ffb15a30414d",
+        version: 63
+      }
+    }
+}, {
+    caps: ["eth/62", "eth/63"],
+    id: "11f206e5d15a17959f60b595a9c929161125d37ff988b88ca9bbf025da7bfecb48d478f68dfc642ba5a397a465df27d92d3b25cad70a0710a954ffe3e7aaf12f",
+    name: "Geth/v1.5.0-unstable-6729e9a5/linux/go1.10.3",
+    network: {
+      localAddress: "10.0.9.238:21000",
+      remoteAddress: "54.197.84.79:47130"
+    },
+    protocols: {
+      eth: {
+        difficulty: 20106613,
+        head: "0xb6a3f8aaa501ce95e088089fb10b83a3fbc0c8c724dd2ee1f7cec69ab402d3f4",
+        version: 63
+      }
+    }
+}, {
+    caps: ["eth/62", "eth/63"],
+    id: "1e5973dfc067258e01777320ab1f3d7db894a79faefea9e7d116447a5d51ce4c83d0c8c68abdf1b101b6e796b99f573b6114c9cc5c0fa15998eb6706d655fb9e",
+    name: "Geth/v1.5.0-unstable-6729e9a5/linux/go1.10.3",
+    network: {
+      localAddress: "10.0.9.238:21000",
+      remoteAddress: "35.172.141.185:55522"
+    },
+    protocols: {
+      eth: {
+        difficulty: 19684564,
+        head: "0x23fbc1d872f2a154b64cc56ff4b5537c10f15b1d4709402db8453b475c51e1e1",
+        version: 63
+      }
+    }
+}, {
+    caps: ["eth/62", "eth/63"],
+    id: "21116d4efc4a342591ca7dad6eb6f36ba14b81841d2f662d9ce0ba300b13bd230b05e75ab0531814d53b4ffb980b59338f2937fb153a614330ffa8eeb6ec94fd",
+    name: "Geth/v1.5.0-unstable-6729e9a5/linux/go1.10.3",
+    network: {
+      localAddress: "10.0.9.238:60650",
+      remoteAddress: "18.209.9.107:21000"
+    },
+    protocols: {
+      eth: {
+        difficulty: 20247432,
+        head: "0x8ef211d535cc692b085eceed68a834f4f45316e4f0c957adac80ffb15a30414d",
+        version: 63
+      }
+    }
+}, {
+    caps: ["eth/62", "eth/63"],
+    id: "22fb8749df8f3428e8085062af3af20065ca4696fff6f242415aa6520adba9a7d4f875123abc3d0c595ac6684fb501890814f0d3321979ee52ae56ba92f1bade",
+    name: "Geth/v1.5.0-unstable-6729e9a5/linux/go1.10.3",
+    network: {
+      localAddress: "10.0.9.238:21000",
+      remoteAddress: "54.210.124.111:40806"
+    },
+    protocols: {
+      eth: {
+        difficulty: 20247432,
+        head: "0x8ef211d535cc692b085eceed68a834f4f45316e4f0c957adac80ffb15a30414d",
+        version: 63
+      }
+    }
+}, {
+    caps: ["eth/62", "eth/63"],
+    id: "2d9cb831f0a62e865220313ed62c800db871a40b2c76d734bf375bc02b149c597ffcb170245dde55a857941776aab97628efa931e87d09aa83bbd00123f62b2a",
+    name: "Geth/v1.5.0-unstable-6729e9a5/linux/go1.10.3",
+    network: {
+      localAddress: "10.0.9.238:50040",
+      remoteAddress: "52.15.135.96:21000"
+    },
+    protocols: {
+      eth: {
+        difficulty: 20247432,
+        head: "0x8ef211d535cc692b085eceed68a834f4f45316e4f0c957adac80ffb15a30414d",
+        version: 63
+      }
+    }
+}]
+> 
+```
+
+Example output file:
+```
+graph EximchainNodes {
+  subgraph cluster0 {
+    node [color=white];
+    label="Eximchain Nodes, min cut=14, IPs=45, diameter=6"
+    "     ";
+  };
+  subgraph cluster_1 {
+    label="Subgraph 1"
+    "13.232.223.9";
+    "54.197.13.5";
+    "54.197.84.79";
+    "52.66.139.183";
+    "13.232.142.88";
+    "13.127.26.148";
+  };
+}
+```
 
 Upgrade
 ==

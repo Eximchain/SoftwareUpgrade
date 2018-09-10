@@ -193,7 +193,8 @@ func convertTerraformJSON(inputTemplate, jsonPath, outputFilename string) {
 
 func main() {
 
-	log.SetOutput(os.Stdout) // redirect logger output. This is so that the log.Fatal* are redirected.
+	log.SetOutput(os.Stdout)                   // redirect logger output so that the log.Fatal* are redirected to stdout
+	log.SetFlags(log.Flags() &^ log.LstdFlags) // remove date/time from any log messages
 	fmt.Println()
 	fmt.Println("Creates configuration file for Upgrading Quorum nodes")
 	fmt.Println()
@@ -228,11 +229,12 @@ func main() {
 		log.Fatalln("No output filename specified.")
 	}
 
+	fmt.Println("Remove Quotes: ", removeQuotes)
+	fmt.Println("Remove Delimiters: ", removeDelimiters)
+
 	switch terraformMode {
 	case "cli":
 		{
-			fmt.Println("Remove Quotes: ", removeQuotes)
-			fmt.Println("Remove Delimiters: ", removeDelimiters)
 
 			if templateFilename, err = softwareupgrade.Expand(templateFilename); err != nil {
 				log.Fatalf(cExpandingFilenameErr, templateFilename, err)
