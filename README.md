@@ -4,9 +4,10 @@ Table of Contents
    * [CreateConfig](#createconfig)
         * [Command line parameters](#createconfig-command-line-parameters)
         * [Template format](#createconfig-template-format)
-    * [CreateGraph](#creategraph)
+   * [CreateGraph](#creategraph)
         * [Command line parameters](#creategraph-command-line-parameters)
-    * [Upgrade](#upgrade)
+        * [Example](#creategraph-example)
+   * [Upgrade](#upgrade)
         * [command line parameters](#upgrade-command-line-parameters)
         * [JSON configuration file format](#json-configuration-file-format)
         * [Troubleshooting](#troubleshooting)
@@ -116,13 +117,15 @@ It then generates the output file using the [DOT](https://emden.github.io/_pages
 CreateGraph command line parameters
 ==
 *   -concurrent - number of iterations to run concurrently (minimum and default of 1)
+*   -extension - The file extension of the input files
 * 	-in - Name of input file containing remote addresses.
 *   -iterations - number of iterations to run (default of 100)
 *	-list - Name of file containing list of input files containing remote addresses. (use either -in or -list but not both)
 *   -output - Filename to write output to
 *   -radius - Whether to calculate the radius or not (true|false)
-*   -ext - The file extension of the input files
 
+CreateGraph example
+==
 Here's an example on how to call it:
 ```
 ./CreateGraph -concurrent=100 -extension=.json.raw -list=~/nodelist.txt -out=~/EximchainNodes.dot
