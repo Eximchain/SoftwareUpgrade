@@ -312,7 +312,7 @@ The JSON configuration file is a JSON object, which consists of a number of obje
 3. The groupnodes object lists nodes belonging to groups listed in the software object's child nodes.
 
 The software object defines the software objects that are to be upgraded/added on the target nodes.
-Each child software object can be arbitrarily named (**_____the same names must be used in the groupnodes children nodes___**). It has a start and a stop string, and a copy object. 
+Each child software object can be arbitrarily named (**___the same names must be used in the groupnodes children nodes___**). It has a start and a stop string, and a copy object. 
 
 The start and stop string specifies commands to execute, in order to start and stop the software being upgraded.
 The stop command is executed first.
