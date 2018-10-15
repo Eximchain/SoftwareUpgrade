@@ -31,7 +31,7 @@ terraform output -json > terraformoutput.txt
 ```
 The above command causes Terraform to output its data is JSON format into the file terraformoutput.txt. You can use any filename.
 
-Three examples of the CreateConfig invocation is as below:
+Examples of the CreateConfig invocation is as below:
 ```
 
 ./CreateConfig -mode=aws -output1="Key=NetworkId,Value=84826,Key=Role,Value=Bootnode;bootnode_ips;map;PublicIpAddress" -output2="Key=NetworkId,Value=84826,Key=Role,Value=Maker;quorum_maker_node_dns;map;PublicDnsName" -output3="Key=NetworkId,Value=84826,Key=Role,Value=Observer;quorum_observer_node_dns;map;PublicDnsName" -output4="Key=NetworkId,Value=84826,Key=Role,Value=Validator;quorum_validator_node_dns;map;PublicDnsName" -output5="Key=NetworkId,Value=84826,Key=Role,Value=Vault;vault_server_ips;list;PublicIpAddress" -output=/tmp/terraform-AWS.json -sak=FOaR4xxxxxxxx -akid=AKIAxxxxxxxxxx -region=us-east-1
@@ -43,7 +43,7 @@ CreateConfig -mode=cli -input=template.json -output=terraformoutput.txt -terrafo
 CreateConfig -mode=tfe -input=template.json -output=terraformoutput.txt -workspace=workspace-name -organization=eximchain -auth=authtoken
 ```
 
-In aws mode, CreateConfig reads data from AWS based on credentials and region read from ~/.aws/credentials and ~/.aws/config or from the command line. The difference between the first and second example is that the credentials and region are specified.
+In aws mode, CreateConfig reads data from AWS based on credentials and region read from ~/.aws/credentials and ~/.aws/config or from the command line. The difference between the first and second example is that the credentials and region are specified on the command line.
 
 In cli mode, CreateConfig reads from a file (which is the redirected output of terraform output -json) and combines it with the specified template file to produce the output file.
 
