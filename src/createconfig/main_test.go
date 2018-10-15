@@ -44,9 +44,9 @@ func TestConvertTerraformJSONContent(t *testing.T) {
 	JSONContent, err := json.Marshal(&content)
 	fmt.Printf("%s", string(JSONContent))
 
-	SetRemoveQuotes(true)
-	SetRemoveDelimiters(true)
-	ConvertTerraformJSONContent(inputTemplate, JSONContent, outputFilename)
+	removeQuotes := true
+	removeDelimiters := true
+	ConvertTerraformJSONContent(removeQuotes, removeDelimiters, inputTemplate, JSONContent, outputFilename)
 	outputBytes, err := ioutil.ReadFile(outputFilename)
 	if err != nil {
 		t.Errorf("Failure reading output file %s due to %v", outputFilename, err)
@@ -56,4 +56,62 @@ func TestConvertTerraformJSONContent(t *testing.T) {
 	if outputContent != expectedContent {
 		t.Errorf("Output content: %s does not match expected content: %s", outputContent, expectedContent)
 	}
+}
+
+func makeBootnodeValues() (result map[string][]string) {
+	result = make(map[string][]string)
+	result["ap-northeast-1"] = []string{}
+	result["ap-northeast-2"] = []string{}
+	result["ap-south-1"] = []string{"52.66.115.215", "13.232.221.120", "13.127.182.4", "52.66.114.148", "13.127.55.162"}
+	result["ap-southeast-1"] = []string{}
+	result["ap-southeast-2"] = []string{}
+	result["ca-central-1"] = []string{}
+	result["au-central-1"] = []string{}
+	return
+}
+
+func makeBootnodeIPs() TerraformItem {
+	return TerraformItem{Sensitive: false, Type: "map", Value: makeBootnodeValues()}
+}
+
+func makeBootnodeIPs2() (result TerraformItem) {
+	result = makeTerraformItem("map")
+	result.SetRegion("us-east-1")
+	result.AddIP("ec2-34-229-88-28.compute-1.amazonaws.com")
+	result.AddIP("ec2-18-209-160-89.compute-1.amazonaws.com")
+	return
+}
+
+func makeVaultServerIPs() TerraformItem {
+	return TerraformItem{Sensitive: false, Type: "list", Value: []string{"18.213.245.54"}}
+}
+
+func makeVaultServerIPs2() (result TerraformItem) {
+	result = makeTerraformItem("list")
+	result.AddIP("18.213.245.54")
+	result.AddIP("165.21.100.88")
+	return
+}
+
+func Test_Format(t *testing.T) {
+	aTerraformType := makeTerraformType()
+	item := aTerraformType.GetTerraformItem("bootnode_ips", "map")
+	item.SetRegion("us-east-1")
+	item.AddIP("192.168.0.1")
+	item.SetRegion("us-east-2")
+	item.AddIP("192.168.0.2")
+	aTerraformType.SaveToFile("/tmp/terraform-AWS.json")
+}
+
+func Test_format2(t *testing.T) {
+	var terraformOutput map[string]TerraformItem
+	// terraformOutput := makeTerraformType()
+	terraformOutput["bootnode_ips"] = makeBootnodeIPs2()
+	terraformOutput["vault_server_ips"] = makeVaultServerIPs2()
+	bytes, err := json.MarshalIndent(&terraformOutput, "", "    ")
+	if err == nil {
+		bytes = append(bytes, []byte("\n")...)
+	}
+
+	ioutil.WriteFile("/tmp/terraform-test-02.json", bytes, 0777)
 }

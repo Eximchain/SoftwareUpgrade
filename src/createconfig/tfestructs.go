@@ -24,6 +24,7 @@ type (
 		bytes string
 		index int
 	}
+	// Node contains the name, type and data of the node
 	Node struct {
 		name     string
 		nodetype NodeType
@@ -32,6 +33,7 @@ type (
 )
 
 type (
+	// ErrorResponse is a container for title and status
 	ErrorResponse struct {
 		Errors []struct {
 			Status string `json:"status"`
@@ -39,6 +41,7 @@ type (
 		} `json:"errors"`
 	}
 
+	// TFE is a container for the organization, workspace and token
 	TFE struct {
 		organization       string
 		workspaceName      string
@@ -47,6 +50,7 @@ type (
 		request            *http.Request
 	}
 
+	// GetWorkspaceResponse is the data returned by GetWorkspace
 	GetWorkspaceResponse struct {
 		Data struct {
 			ID         string `json:"id"`
@@ -120,6 +124,7 @@ type (
 		} `json:"data"`
 	}
 
+	// ListWorkspaceResponse is the data returned by ListWorkspaceResponse
 	ListWorkspaceResponse struct {
 		Data []struct {
 			ID         string `json:"id"`
@@ -226,6 +231,7 @@ type (
 		} `json:"meta"`
 	}
 
+	// LatestRunInfo contains the latest run information
 	LatestRunInfo struct {
 		Data []struct {
 			ID         string `json:"id"`
@@ -381,13 +387,18 @@ type (
 	}
 )
 
-const TFEBaseURL = "https://app.terraform.io/api/v2"
+const (
+	// TFEBaseURL is the base url for Terraform Enterprise
+	TFEBaseURL = "https://app.terraform.io/api/v2"
+)
 
+// NewTFE creates a new TFE struct with the provided org, workspace and token
 func NewTFE(organization, workspace, token string) (result *TFE) {
 	result = &TFE{organization: organization, workspaceName: workspace, authorizationToken: token}
 	return
 }
 
+// Destroy clears the given tfe
 func (tfe *TFE) Destroy() {
 	tfe.authorizationToken = ""
 	tfe.organization = ""
@@ -396,6 +407,7 @@ func (tfe *TFE) Destroy() {
 	tfe.request = nil
 }
 
+// ChangeWorkspace changes the workspaces in the given tfe and clears the ID
 func (tfe *TFE) ChangeWorkspace(workspace string) {
 	tfe.workspaceName = workspace
 	tfe.id = "" // invalidate the cached data
@@ -406,6 +418,7 @@ func (tfe *TFE) getToken() (result string) {
 	return
 }
 
+// InitRequestHeaders sets up the request using the given url
 func (tfe *TFE) InitRequestHeaders(url string) (err error) {
 	tfe.request, err = http.NewRequest("GET", url, nil)
 	if err == nil {
@@ -437,6 +450,7 @@ func (tfe *TFE) listWorkspacesBytes() (result []byte, err error) {
 
 func (tfe *TFE) getWorkspaceBytes() (result []byte, err error) {
 	url := fmt.Sprintf("%s/organizations/%s/workspaces/%s", TFEBaseURL, tfe.organization, tfe.workspaceName)
+	fmt.Println(url)
 	return tfe.getURL(url)
 }
 
@@ -548,6 +562,7 @@ func (tfe *TFE) GetWorkspaceOutput() (result []byte, err error) {
 	return
 }
 
+// ListWorkspaceRuns list the workspace runs
 func (tfe *TFE) ListWorkspaceRuns() (result []byte, err error) {
 	result, err = tfe.listWorkspaceRunsBytes()
 	return

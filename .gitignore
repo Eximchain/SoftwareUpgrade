@@ -36,3 +36,6 @@ shouldwork.sh
 src/CreateConfig.code-workspace
 src/CreateGraph/node-1.tf
 
+aws.sh
+CreateConfig
+CreateGraph

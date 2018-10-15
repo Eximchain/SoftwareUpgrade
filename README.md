@@ -33,10 +33,17 @@ The above command causes Terraform to output its data is JSON format into the fi
 
 Three examples of the CreateConfig invocation is as below:
 ```
-CreateConfig template.json terraformoutput.txt upgrade.json
+
+./CreateConfig -mode=aws -output1="Key=NetworkId,Value=84826,Key=Role,Value=Bootnode;bootnode_ips;map;PublicIpAddress" -output2="Key=NetworkId,Value=84826,Key=Role,Value=Maker;quorum_maker_node_dns;map;PublicDnsName" -output3="Key=NetworkId,Value=84826,Key=Role,Value=Observer;quorum_observer_node_dns;map;PublicDnsName" -output4="Key=NetworkId,Value=84826,Key=Role,Value=Validator;quorum_validator_node_dns;map;PublicDnsName" -output5="Key=NetworkId,Value=84826,Key=Role,Value=Vault;vault_server_ips;list;PublicIpAddress" -output=/tmp/terraform-AWS.json -sak=FOaR4xxxxxxxx -akid=AKIAxxxxxxxxxx -region=us-east-1
+
+./CreateConfig -mode=aws -output1="Key=NetworkId,Value=84826,Key=Role,Value=Bootnode;bootnode_ips;map;PublicIpAddress" -output2="Key=NetworkId,Value=84826,Key=Role,Value=Maker;quorum_maker_node_dns;map;PublicDnsName" -output3="Key=NetworkId,Value=84826,Key=Role,Value=Observer;quorum_observer_node_dns;map;PublicDnsName" -output4="Key=NetworkId,Value=84826,Key=Role,Value=Validator;quorum_validator_node_dns;map;PublicDnsName" -output5="Key=NetworkId,Value=84826,Key=Role,Value=Vault;vault_server_ips;list;PublicIpAddress" -output=/tmp/terraform-AWS.json 
+
 CreateConfig -mode=cli -input=template.json -output=terraformoutput.txt -terraform-json=upgrade.json -remove-quote=true -remove-delimiter=true
+
 CreateConfig -mode=tfe -input=template.json -output=terraformoutput.txt -workspace=workspace-name -organization=eximchain -auth=authtoken
 ```
+
+In aws mode, CreateConfig reads data from AWS based on credentials and region read from ~/.aws/credentials and ~/.aws/config or from the command line. The difference between the first and second example is that the credentials and region are specified.
 
 In cli mode, CreateConfig reads from a file (which is the redirected output of terraform output -json) and combines it with the specified template file to produce the output file.
 
@@ -49,12 +56,18 @@ CreateConfig command line parameters
 *   -output - Filename to write output to
 *   -remove-quote - true|false, remove quotes from output
 *   -remove-delimiter - remove commas from output separating items
-*   -mode - cli|tfe, command line interface, or Terraform Enterprise API integration
+*   -mode - aws|cli|tfe, command line interface, or Terraform Enterprise API integration
+    *   in AWS mode, these parameters are required: outputN where N is 1 to 10, and output
     *   in cli mode, these parameters are required: output, template, terraform-json
     *   in tfe mode, these parameters are required: auth, organization, workspace
 *   -workspace - Name of workspace (only for tfe mode)
 *   -organization - Name of organization (only for tfe mode)
 *   -auth - Authorization token (only for tfe mode)
+*   -akid - AWS Access Key ID (only for aws mode)
+*   -sak - AWS Secret Access Key (only for aws mode)
+*   -region - default region (only for aws mode)
+*   -debug - in AWS mode, useful for looking at the filter, and progress.
+
 
 CreateConfig template format
 ==

@@ -101,7 +101,6 @@ func (n *NetworkBlocks) IsPrivateIP(ip net.IP) bool {
 }
 
 func main() {
-
 	fmt.Println()
 	fmt.Println("Creates graph file for analysis of Eximchain Nodes")
 	fmt.Println()
@@ -313,7 +312,7 @@ func main() {
 	cut := g.RandMinimumCut(iterations, concurrent)
 	diameter := g.Diameter()
 	WriteLn(f, "    node [color=white];")
-	stats := fmt.Sprintf("Eximchain Nodes, min cut=%d, IPs=%d, diameter=%d", len(cut), len(IPsNode), diameter)
+	stats := fmt.Sprintf("Eximchain Nodes: min cut=%d, IPs=%d, diameter=%d", len(cut), len(IPsNode), diameter)
 	fmt.Println(stats)
 	line := fmt.Sprintf(`    label="%s"`, stats)
 	WriteLn(f, line)
@@ -321,7 +320,10 @@ func main() {
 	WriteLn(f, "  };")
 
 	if calculateRadius {
+		start := time.Now()
 		fmt.Printf("Radius: %d\n", g.Radius())
+		elapsed := time.Since(start)
+		fmt.Printf("Radius took %s\n", elapsed)
 	}
 	subgraphs := g.StronglyConnectedComponents()
 	if len(subgraphs) > 0 {
